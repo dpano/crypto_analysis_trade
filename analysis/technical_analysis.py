@@ -2,13 +2,13 @@ import ta
 
 def calculate_indicators(df):
     # Calculate the 14-period RSI
-    df['rsi'] = ta.momentum.RSIIndicator(df['last_price'], window=14).rsi()
+    df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
     
     # Calculate the 50-period SMA
-    df['sma_50'] = ta.trend.SMAIndicator(df['last_price'], window=50).sma_indicator()
+    df['sma_50'] = ta.trend.SMAIndicator(df['close'], window=50).sma_indicator()
     
     # Calculate the 200-period SMA
-    df['sma_200'] = ta.trend.SMAIndicator(df['last_price'], window=200).sma_indicator()
+    df['sma_200'] = ta.trend.SMAIndicator(df['close'], window=200).sma_indicator()
     
     return df
 

@@ -47,7 +47,32 @@ def fetch_data(symbol='BTCUSDT'):
     df = pd.read_sql(query, conn, parse_dates=['start_time'], index_col='start_time')
     conn.close()
     return df  
-  
+
+def fetch_daily_data(symbol='BTCUSDT'):
+    # Connect to the SQLite database
+    conn = connect_db()
+    # Fetch data for the specified symbol
+    query = f"""
+        SELECT 
+            t1.*
+        FROM 
+            market_data t1
+        INNER JOIN 
+            (
+                SELECT 
+                    DATE(start_time) as date,
+                    MAX(id) as max_id
+                FROM 
+                    market_data
+                GROUP BY 
+                    DATE(start_time)
+            ) t2 ON t1.id = t2.max_id
+        ORDER BY 
+            t1.start_time DESC;
+        """
+    df = pd.read_sql(query, conn, parse_dates=['start_time'], index_col='start_time')
+    conn.close()
+    return df  
 def insert_data(start_time, end_time, open, high, low, close, volume,symbol):
     conn = connect_db()
     c = conn.cursor()
