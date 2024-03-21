@@ -17,9 +17,10 @@ def on_message(ws, message):
     close_price = data['k']['c']
     volume = data['k']['v']
     symbol = data['s']
+    event_timestamp = transform_timestamp_to_date(data['E'])
     
     # Insert extracted data into SQLite database
-    insert_data(start_time, end_time, open_price, high_price, low_price, close_price, volume, symbol)
+    insert_data(event_timestamp,start_time, end_time, open_price, high_price, low_price, close_price, volume, symbol)
 
     print("Received a message")
     print(json.loads(message))

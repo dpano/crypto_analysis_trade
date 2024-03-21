@@ -13,6 +13,7 @@ def setup_database():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS market_data (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_timestamp TEXT,           
         start_time TEXT,
         end_time TEXT,
         open REAL,
@@ -43,8 +44,8 @@ def fetch_data(symbol='BTCUSDT'):
     # Connect to the SQLite database
     conn = connect_db()
     # Fetch data for the specified symbol
-    query = f"SELECT start_time, close FROM market_data WHERE symbol = '{symbol}' ORDER BY id ASC"
-    df = pd.read_sql(query, conn, parse_dates=['start_time'], index_col='start_time')
+    query = f"SELECT event_timestamp, close FROM market_data WHERE symbol = '{symbol}' ORDER BY id ASC"
+    df = pd.read_sql(query, conn, parse_dates=['event_timestamp'], index_col='event_timestamp')
     conn.close()
     return df  
 
@@ -73,10 +74,25 @@ def fetch_daily_data(symbol='BTCUSDT'):
     df = pd.read_sql(query, conn, parse_dates=['start_time'], index_col='start_time')
     conn.close()
     return df  
-def insert_data(start_time, end_time, open, high, low, close, volume,symbol):
-    conn = connect_db()
-    c = conn.cursor()
-    c.execute('''INSERT INTO market_data (start_time, end_time, open, high, low, close, volume,symbol) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', (start_time, end_time, open, high, low, close, volume,symbol))
-    conn.commit()
-    conn.close()
+
+def insert_data(event_timestamp,start_time, end_time, open, high, low, close, volume,symbol):
+    try:
+        conn = connect_db()
+        c = conn.cursor()
+        c.execute('''INSERT INTO market_data (event_timestamp, start_time, end_time, open, high, low, close, volume, symbol) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                  (event_timestamp, start_time, end_time, open, high, low, close, volume, symbol))
+        conn.commit()
+    except sqlite3.IntegrityError as e:
+        print("SQLite integrity error:", e)
+        # Handle integrity errors (e.g., constraint violation)
+    except sqlite3.OperationalError as e:
+        print("SQLite operational error:", e)
+        # Handle operational errors (e.g., unexpected disconnect, cannot find table)
+    except Exception as e:
+        # Catch-all for any other database exceptions
+        print("General database error:", e)
+    finally:
+        # Ensure the connection is closed properly in any case
+        if conn:
+            conn.close()
