@@ -1,8 +1,8 @@
 import websocket
 import json
-import datetime
 
 from db.database import insert_data
+from helpers.data_manipulation import transform_timestamp_to_date
 
 # WebSocket Callbacks
 def on_message(ws, message):
@@ -45,5 +45,3 @@ def start_websocket():
                                 on_open=on_open)
     ws.run_forever()    
 
-def transform_timestamp_to_date(timestamp):
-    return datetime.datetime.fromtimestamp(timestamp / 1000.0).strftime('%Y-%m-%d %H:%M:%S')
