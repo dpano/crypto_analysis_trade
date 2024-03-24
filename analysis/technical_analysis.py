@@ -5,6 +5,8 @@ from db.database import fetch_daily_data, fetch_data
 from signal.signals import should_send_oportunity_signal
 
 def calculate_indicators(df):
+    # Symbol
+    df['symbol'] = df['symbol']
     # Calculate the 14-period RSI
     df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
     

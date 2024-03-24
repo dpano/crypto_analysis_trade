@@ -44,8 +44,8 @@ def fetch_data(symbol='BTCUSDT'):
     # Connect to the SQLite database
     conn = connect_db()
     # Fetch data for the specified symbol
-    query = f"SELECT event_timestamp, close FROM market_data WHERE symbol = '{symbol}' ORDER BY id ASC"
-    df = pd.read_sql(query, conn, parse_dates=['event_timestamp'], index_col='event_timestamp')
+    query = f"SELECT start_time, close, symbol FROM market_data WHERE symbol = '{symbol}' ORDER BY id ASC"
+    df = pd.read_sql(query, conn, parse_dates=['start_time'], index_col='start_time')
     conn.close()
     return df  
 
