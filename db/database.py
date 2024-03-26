@@ -20,7 +20,9 @@ def setup_database():
         low REAL,
         close REAL,
         volume REAL,
-        symbol)''')
+        symbol,
+        UNIQUE(start_time,end_time,symbol)
+    )''')
     
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS orders (

@@ -9,7 +9,7 @@ def binance_client(config):
     return Client(config['api_key'], config['api_secret'])
 
 def trading_pairs():
-    return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
+    return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT','SOLUSDT','ADAUSDT','DOGEUSDT','AVAXUSDT','DOTUSDT','LINKUSDT','TRXUSDT','ICPUSDT','MATICUSDT','NEARUSDT','UNIUSDT']
 
 # High-order function to process trading pairs
 def process_trading_pairs(client, pairs, process_fn):
