@@ -1,8 +1,9 @@
 
 import os
+from brokers.binance import binance_client, fetch_and_process_historical_data, process_trading_pairs, trading_pairs
 from configuration.binance_config import config 
 from db.database import setup_database
-from utils.ticker_client import binance_client, fetch_and_process_historical_data, process_trading_pairs, trading_pairs
+
 from binance.client import Client
 
 def get_data():

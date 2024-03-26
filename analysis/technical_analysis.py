@@ -1,8 +1,9 @@
+import datetime
 import ta
 import time
 
-from db.database import fetch_daily_data, fetch_data
-from signal.signals import should_send_oportunity_signal
+from db.database import fetch_daily_data, fetch_data, store_last_signal
+from helpers.data_manipulation import current_datetime, transform_timestamp_to_date
 
 def calculate_indicators(df):
     # Symbol
@@ -30,16 +31,46 @@ def analyze_signals(df):
     
     return df
 
-def start_analysis(sleep = 60):
+def signal_type(df):
+    # Initialize the 'last_signal' column with empty strings
+    df['last_signal'] = ''
+
+    # Create a SELL signal condition
+    sell_condition = (df['golden_cross'] & df['oversold'])
+    # Assign 'SELL' to the 'last_signal' column where the condition is True
+    df.loc[sell_condition, 'last_signal'] = 'SELL'
+
+    # Create a BUY signal condition
+    buy_condition = (df['death_cross'] & df['overbought'])
+    # Assign 'BUY' to the 'last_signal' column where the condition is True
+    df.loc[buy_condition, 'last_signal'] = 'BUY'
+    return df 
+
+
+def start_market_pair_analysis(symbols=['BTCUSDT'], sleep=86400):
     while True:
-        df = fetch_data()
-        df = calculate_indicators(df)  # Calculate technical indicators
-        df = analyze_signals(df)  # Analyze for trading signals
-        for index, row in df.iterrows():
-            if should_send_oportunity_signal(row['rsi'], row['golden_cross'], row['death_cross']):
-                # Here is where you would send an email
-                print(f"Adjust purchase for data at {index}. Conditions met.")
-        print(df.info(verbose=True))
-        print(df.tail(10))
-        time.sleep(sleep)
+        for symbol in symbols:
+            df = fetch_data(symbol)
+            df = calculate_indicators(df)  # Calculate technical indicators
+            df = analyze_signals(df)  # Analyze for trading signals
+            df = signal_type(df) # set signal type
+
+            # Assuming analyze_signals returns a DataFrame with a 'last_signal' column
+            last_signal_row = df.iloc[-1]  # Get the last row which should have the latest signal
+
+            store_last_signal(symbol, last_signal_row['start_time'], 
+                              last_signal_row['last_signal'], 
+                              last_signal_row['rsi'], 
+                              last_signal_row['sma_50'],
+                              last_signal_row['sma_200'],
+                              int(last_signal_row['golden_cross']),
+                              int(last_signal_row['death_cross']),
+                              int(last_signal_row['overbought']),
+                              int(last_signal_row['oversold'])
+                              )
+
+            # Optional: Print or log the analysis
+            print(f"Last signal for {symbol}: {last_signal_row['last_signal']} at {last_signal_row['start_time']}")
+
+        time.sleep(sleep)        
 

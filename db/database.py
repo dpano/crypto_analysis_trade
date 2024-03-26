@@ -1,4 +1,3 @@
-import datetime
 import sqlite3
 
 import pandas as pd
@@ -36,16 +35,41 @@ def setup_database():
         profit_loss REAL
     );
     """)
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS trading_signals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        symbol TEXT,           
+        signal_time TEXT,
+        signal_type TEXT,
+        rsi REAL,
+        sma_50 REAL,
+        sma_200 REAL,
+        golden_cross INTEGER,
+        death_cross INTEGER,
+        overbought INTEGER,
+        oversold INTEGER,           
+        UNIQUE(symbol,signal_time));
+    ''')
+    
     conn.commit()
     conn.close()
     
     
-def fetch_data(symbol='BTCUSDT'):
+def fetch_data(symbol='BTCUSDT', limit=500):
     # Connect to the SQLite database
     conn = connect_db()
     # Fetch data for the specified symbol
-    query = f"SELECT start_time, close, symbol FROM market_data WHERE symbol = '{symbol}' ORDER BY id ASC"
-    df = pd.read_sql(query, conn, parse_dates=['start_time'], index_col='start_time')
+    query = f"""SELECT id, start_time, end_time, close, symbol 
+                FROM (
+                    SELECT id, start_time, end_time, close, symbol
+                    FROM market_data 
+                    WHERE symbol = '{symbol}'
+                    ORDER BY id DESC
+                    LIMIT '{limit}'
+                ) AS last_records
+                ORDER BY id ASC"""
+    df = pd.read_sql(query, conn, parse_dates=['start_time'], index_col='id')
     conn.close()
     return df  
 
@@ -96,3 +120,13 @@ def insert_data(event_timestamp,start_time, end_time, open, high, low, close, vo
         # Ensure the connection is closed properly in any case
         if conn:
             conn.close()
+
+def store_last_signal(symbol, signal_time, signal_type, rsi, sma_50, sma_200, golden_cross, death_cross, overbought, oversold):
+    conn = connect_db()
+    cursor = conn.cursor()
+    # INSERT OR REPLACE based on the uniqueness of (symbol, signal_time)
+    query = '''INSERT OR REPLACE INTO trading_signals (symbol, signal_time, signal_type, rsi, sma_50, sma_200, golden_cross, death_cross, overbought, oversold) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'''
+    cursor.execute(query, (symbol, signal_time.isoformat(), signal_type, rsi, sma_50, sma_200, golden_cross, death_cross, overbought, oversold))
+    conn.commit()
+    conn.close()            
