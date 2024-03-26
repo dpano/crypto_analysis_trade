@@ -130,6 +130,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+crypto_analysis_trade_venv/
 
 # Spyder project settings
 .spyderproject
