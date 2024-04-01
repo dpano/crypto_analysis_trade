@@ -8,5 +8,5 @@ def start_ticker():
     pairs = trading_pairs()
     while True:
         process_trading_pairs(client, pairs, fetch_and_process_candlesticks)
-        time.sleep(60)  # Functional approach avoids explicit loop control inside processing
+        time.sleep(86400)  # Functional approach avoids explicit loop control inside processing
 

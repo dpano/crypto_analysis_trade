@@ -1,9 +1,8 @@
-import datetime
 import ta
 import time
 
-from db.database import fetch_daily_data, fetch_data, store_last_signal
-from helpers.data_manipulation import current_datetime, transform_timestamp_to_date
+from db.database import fetch_data, store_last_signal
+from analysis.send_signal import send_signal
 
 def calculate_indicators(df):
     # Symbol
@@ -33,7 +32,7 @@ def analyze_signals(df):
 
 def signal_type(df):
     # Initialize the 'last_signal' column with empty strings
-    df['last_signal'] = ''
+    df['last_signal'] = 'HOLD'
 
     # Create a SELL signal condition
     sell_condition = (df['golden_cross'] & df['oversold'])
@@ -71,6 +70,7 @@ def start_market_pair_analysis(symbols=['BTCUSDT'], sleep=86400):
 
             # Optional: Print or log the analysis
             print(f"Last signal for {symbol}: {last_signal_row['last_signal']} at {last_signal_row['start_time']}")
-
+            if last_signal_row['last_signal'] == 'SELL' or last_signal_row['last_signal'] == 'BUY':
+                send_signal(last_signal_row['last_signal'],symbol)
         time.sleep(sleep)        
 
