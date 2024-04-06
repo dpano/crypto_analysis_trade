@@ -27,6 +27,7 @@ def setup_database():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY,
+        position_id INTEGER,
         type TEXT NOT NULL,
         status TEXT NOT NULL,
         price REAL,
@@ -34,6 +35,21 @@ def setup_database():
         symbol TEXT NOT NULL,
         creation_timestamp TEXT NOT NULL,
         execution_timestamp TEXT,
+        FOREIGN KEY (position_id) REFERENCES positions(id)
+    );
+    """)
+    
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS positions (
+        id INTEGER PRIMARY KEY,
+        status TEXT NOT NULL,
+        quantity REAL,
+        entry_price REAL,
+        exit_price REAL,       
+        symbol TEXT NOT NULL,
+        create_timestamp TEXT NOT NULL,
+        entry_timestamp TEXT,
+        exit_timestamp TEXT,
         profit_loss REAL
     );
     """)
