@@ -31,33 +31,22 @@ def analyze_signals(df):
     return df
 
 def signal_type(df):
+    # Ensure columns exist
+    for column in ['death_cross', 'golden_cross', 'overbought', 'oversold']:
+        if column not in df.columns:
+            raise KeyError(f"Column {column} not found in DataFrame.")
+
     # Initialize the 'last_signal' column with empty strings
     df['last_signal'] = 'HOLD'
 
-    # Create SELL signal conditions
-    sell_conditions = [
-        (df['death_cross'] & df['overbought']),  # Death cross and overbought: likely a strong sell
-        (df['golden_cross'] & df['overbought'])  # Golden cross but overbought: consider selling if too high too quickly
-    ]
-    # Combine sell conditions using any()
-    df.loc[df[sell_conditions].any(axis=1), 'last_signal'] = 'SELL'
+    # Apply SELL signals
+    df.loc[(df['death_cross'] & df['overbought']) | (df['golden_cross'] & df['overbought']), 'last_signal'] = 'SELL'
 
-    # Create BUY signal conditions
-    buy_conditions = [
-        (df['golden_cross'] & df['oversold']),  # Golden cross and oversold: strong buy signal
-        (df['death_cross'] & df['oversold'])    # Death cross but oversold: might be an overreaction, consider buying
-    ]
-    # Combine buy conditions using any()
-    df.loc[df[buy_conditions].any(axis=1), 'last_signal'] = 'BUY'
+    # Apply BUY signals
+    df.loc[(df['golden_cross'] & df['oversold']) | (df['death_cross'] & df['oversold']), 'last_signal'] = 'BUY'
 
-    # HOLD signals could be considered explicitly or implicitly by the absence of buy/sell conditions
-    # For example, you might explicitly want to set HOLD under specific conditions
-    hold_conditions = [
-        (df['golden_cross'] & ~df['oversold'] & ~df['overbought']),  # Golden cross but not overbought or oversold
-        (df['death_cross'] & ~df['oversold'] & ~df['overbought'])    # Death cross but not overbought or oversold
-    ]
-    # Combine hold conditions using any()
-    df.loc[df[hold_conditions].any(axis=1), 'last_signal'] = 'HOLD'
+    # Apply HOLD signals
+    df.loc[(df['golden_cross'] & ~df['oversold'] & ~df['overbought']) | (df['death_cross'] & ~df['oversold'] & ~df['overbought']), 'last_signal'] = 'HOLD'
 
     return df
 
