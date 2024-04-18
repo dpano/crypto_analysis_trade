@@ -34,16 +34,32 @@ def signal_type(df):
     # Initialize the 'last_signal' column with empty strings
     df['last_signal'] = 'HOLD'
 
-    # Create a SELL signal condition
-    sell_condition = (df['golden_cross'] & df['oversold'])
-    # Assign 'SELL' to the 'last_signal' column where the condition is True
-    df.loc[sell_condition, 'last_signal'] = 'SELL'
+    # Create SELL signal conditions
+    sell_conditions = [
+        (df['death_cross'] & df['overbought']),  # Death cross and overbought: likely a strong sell
+        (df['golden_cross'] & df['overbought'])  # Golden cross but overbought: consider selling if too high too quickly
+    ]
+    # Combine sell conditions using any()
+    df.loc[df[sell_conditions].any(axis=1), 'last_signal'] = 'SELL'
 
-    # Create a BUY signal condition
-    buy_condition = (df['death_cross'] & df['overbought'])
-    # Assign 'BUY' to the 'last_signal' column where the condition is True
-    df.loc[buy_condition, 'last_signal'] = 'BUY'
-    return df 
+    # Create BUY signal conditions
+    buy_conditions = [
+        (df['golden_cross'] & df['oversold']),  # Golden cross and oversold: strong buy signal
+        (df['death_cross'] & df['oversold'])    # Death cross but oversold: might be an overreaction, consider buying
+    ]
+    # Combine buy conditions using any()
+    df.loc[df[buy_conditions].any(axis=1), 'last_signal'] = 'BUY'
+
+    # HOLD signals could be considered explicitly or implicitly by the absence of buy/sell conditions
+    # For example, you might explicitly want to set HOLD under specific conditions
+    hold_conditions = [
+        (df['golden_cross'] & ~df['oversold'] & ~df['overbought']),  # Golden cross but not overbought or oversold
+        (df['death_cross'] & ~df['oversold'] & ~df['overbought'])    # Death cross but not overbought or oversold
+    ]
+    # Combine hold conditions using any()
+    df.loc[df[hold_conditions].any(axis=1), 'last_signal'] = 'HOLD'
+
+    return df
 
 
 def start_market_pair_analysis(symbols=['BTCUSDT'], sleep=86400):
@@ -70,7 +86,7 @@ def start_market_pair_analysis(symbols=['BTCUSDT'], sleep=86400):
 
             # Optional: Print or log the analysis
             print(f"Last signal for {symbol}: {last_signal_row['last_signal']} at {last_signal_row['start_time']}")
-            if last_signal_row['last_signal'] == 'SELL' or last_signal_row['last_signal'] == 'BUY':
-                send_signal(last_signal_row['last_signal'],symbol)
+            #if last_signal_row['last_signal'] == 'SELL' or last_signal_row['last_signal'] == 'BUY':
+                #send_signal(last_signal_row['last_signal'],symbol)
         time.sleep(sleep)        
 
