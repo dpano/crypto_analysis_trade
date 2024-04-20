@@ -75,7 +75,7 @@ def start_market_pair_analysis(symbols=['BTCUSDT'], sleep=86400):
 
             # Optional: Print or log the analysis
             print(f"Last signal for {symbol}: {last_signal_row['last_signal']} at {last_signal_row['start_time']}")
-            #if last_signal_row['last_signal'] == 'SELL' or last_signal_row['last_signal'] == 'BUY':
-                #send_signal(last_signal_row['last_signal'],symbol)
+            if last_signal_row['last_signal'] == 'SELL' or last_signal_row['last_signal'] == 'BUY':
+                send_signal(last_signal_row['last_signal'],symbol,'TELEGRAM')
         time.sleep(sleep)        
 
