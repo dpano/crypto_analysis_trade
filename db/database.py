@@ -5,6 +5,11 @@ import pandas as pd
 def connect_db(db_file='trading_bot.db'):
     return sqlite3.connect(db_file)
 
+def get_db_cursor():
+    conn = connect_db()
+    conn.row_factory = sqlite3.Row
+    return conn
+
 def setup_database():
     conn = connect_db()
     cursor = conn.cursor()
