@@ -74,7 +74,15 @@ def setup_database():
         oversold INTEGER,           
         UNIQUE(symbol,signal_time));
     ''')
-    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS trades (
+                    id INTEGER PRIMARY KEY,
+                    timestamp TEXT,
+                    symbol TEXT,
+                    side TEXT,
+                    price REAL,
+                    quantity REAL,
+                    total REAL
+                 )''')
     conn.commit()
     conn.close()
     
@@ -152,4 +160,13 @@ def store_last_signal(symbol, signal_time, signal_type, rsi, sma_50, sma_200, go
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'''
     cursor.execute(query, (symbol, signal_time.isoformat(), signal_type, rsi, sma_50, sma_200, golden_cross, death_cross, overbought, oversold))
     conn.commit()
-    conn.close()            
+    conn.close()     
+
+def log_trade(symbol, side, price, quantity):
+    conn = connect_db()
+    c = conn.cursor()
+    total = price * quantity
+    c.execute("INSERT INTO trades (timestamp, symbol, side, price, quantity, total) VALUES (datetime('now'), ?, ?, ?, ?, ?)",
+              (symbol, side, price, quantity, total))
+    conn.commit()
+    conn.close()       
