@@ -105,4 +105,4 @@ if __name__ == "__main__":
     telegram('Trading bot started')
     while True:
         run_bot()
-        time.sleep(60 * 60)  # Run every hour (timeframe = 1h)
+        time.sleep(60 * 240)  # Run every hour (timeframe = 1h)
