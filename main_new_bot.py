@@ -43,8 +43,9 @@ def place_order(symbol, side, quantity, order_type=Client.ORDER_TYPE_MARKET):
             quantity=quantity
         )
         print(f"Order placed: {order}")
-        telegram(f"Executing buy order for {quantity} {symbol}")
+        telegram(f"Executing {side} order for {quantity} {symbol}")
     except Exception as e:
+        telegram(f"Error Executing {side} order for {quantity} {symbol}")
         print(f"An error occurred: {e}")
 
 def telegram(message):
