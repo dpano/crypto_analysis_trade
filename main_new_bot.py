@@ -11,6 +11,8 @@ import asyncio
 binance_config = binance_config()
 api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
+client = Client(api_key, api_secret)
+
 symbol = 'ETHUSDT'
 timeframe = '1h'
 sma_period = 50
@@ -21,7 +23,7 @@ macd_signal = 9
 rsi_period = 14
 
 def fetch_data(symbol, interval):
-    klines = Client.get_klines(symbol=symbol, interval=interval)
+    klines = client.get_klines(symbol=symbol, interval=interval)
     df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
     df['close'] = df['close'].astype(float)
     return df
@@ -36,7 +38,7 @@ def calculate_indicators(df):
 
 def place_order(symbol, side, quantity, order_type=Client.ORDER_TYPE_MARKET):
     try:
-        order = Client.create_order(
+        order = client.create_order(
             symbol=symbol,
             side=side,
             type=order_type,
@@ -54,6 +56,7 @@ def telegram(message):
 
 def main():
     quantity = 0.0015  # Adjust this to your desired trade amount
+    telegram('New BOT Started')
     while True:
         df = fetch_data(symbol, timeframe)
         df = calculate_indicators(df)
