@@ -57,6 +57,7 @@ def telegram(message):
 def main():
     quantity = 0.0015  # Adjust this to your desired trade amount
     telegram('New BOT Started')
+    heartbeat = 0
     while True:
         df = fetch_data(symbol, timeframe)
         df = calculate_indicators(df)
@@ -70,6 +71,9 @@ def main():
             # Implement your sell logic here
             place_order(symbol, Client.SIDE_SELL, quantity)
         time.sleep(60 * 60)  # Wait for 1 hour before the next iteration
+        heartbeat += 1
+        if heartbeat % 24 == 0:
+            telegram('Heartbeat - bot is alive')
 
 if __name__ == "__main__":
     main()
