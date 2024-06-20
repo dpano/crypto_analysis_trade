@@ -22,7 +22,7 @@ macd_short = 12
 macd_long = 26
 macd_signal = 9
 rsi_period = 14
-trade_percentage = 0.01  # 1% of equity for each trade
+trade_percentage = 0.10  # 10% of equity for each trade
 
 def fetch_data(symbol, interval):
     klines = client.get_klines(symbol=symbol, interval=interval)
