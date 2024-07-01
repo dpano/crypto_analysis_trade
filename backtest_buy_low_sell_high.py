@@ -10,7 +10,7 @@ api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
-symbol = 'SOLUSDT'  # Example symbol
+symbol = 'ETHUSDT'  # Example symbol
 timeframe = Client.KLINE_INTERVAL_1HOUR  
 fast_length = 12
 slow_length = 26
@@ -22,8 +22,7 @@ rsi_entry_min = 50
 rsi_entry_max = 70
 initial_balance = 1180  # Initial balance in USDT
 investment_percentage = 0.15  # equity per trade
-profit_target_percentage = 0.05  # 5% profit target
-trailing_take_profit_percentage = 0.02  # 2% trailing take profit
+stop_loss_percentage = 0.05  # 2% stop los5
 commission_percentage = 0.001  # 0.1% commission
 
 # Fetch historical data (you may need to replace this with your data source)
@@ -52,7 +51,7 @@ def generate_signals(df):
     return df
 
 # Simulate trades
-def backtest_strategy(df, initial_balance, investment_percentage, profit_target_percentage, trailing_take_profit_percentage, commission_percentage):
+def backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage):
     balance = initial_balance
     positions = []  # List to hold open positions
     equity_curve = []
@@ -68,19 +67,17 @@ def backtest_strategy(df, initial_balance, investment_percentage, profit_target_
             positions.append({
                 'amount': investment_amount / price,
                 'buy_price': price,
-                'profit_target': price * (1 + profit_target_percentage),
-                'trailing_take_profit_price': price * (1 + profit_target_percentage) * (1 - trailing_take_profit_percentage),
+                'stop_loss_price': price * (1 - stop_loss_percentage),
                 'entry_index': index,
                 'entry_price': price,
             })
             trade_count += 1
-            #print(f"Buy: {investment_amount} USDT at {price} USD/ETH")
+            #print(f"Buy: {(investment_amount / price):.6f} {symbol.replace('USDT','')} for {investment_amount:.2f} USDT at {price} {symbol}")
         
         for position in positions[:]:  # Iterate over a copy of the list to allow removal
-            position['profit_target'] = max(position['profit_target'], price)
-            position['trailing_take_profit_price'] = position['profit_target'] * (1 - trailing_take_profit_percentage)
-            #threshold_price = position['trailing_take_profit_price'] * 0.97
-            if price >= position['buy_price'] and price >= position['trailing_take_profit_price'] and price <= position['profit_target']:
+            position['stop_loss_price'] = max(position['stop_loss_price'], price * (1 - stop_loss_percentage))
+            # Check stop loss condition
+            if price <= position['stop_loss_price']:
                 balance += position['amount'] * price
                 balance -= position['amount'] * price * commission_percentage  # Commission fee for selling
                 trades.append({
@@ -94,7 +91,7 @@ def backtest_strategy(df, initial_balance, investment_percentage, profit_target_
                 })
                 positions.remove(position)
                 trade_count += 1
-                #print(f"Sell: {position['amount']} ETH at {price} USD/ETH")
+                #print(f"Sell: {position['amount']:.6f} {symbol.replace('USDT','')} at {price} {symbol} (Stop Loss)")
 
         equity_curve.append(balance + sum(pos['amount'] * price for pos in positions))
 
@@ -106,8 +103,7 @@ def backtest_strategy(df, initial_balance, investment_percentage, profit_target_
     print(f"Initial Balance: {initial_balance} USDT")
     print(f"Final Balance: {final_balance} USDT")
     print(f'Investment Percentage: {investment_percentage:.2f}')
-    print(f'Profit Target: {profit_target_percentage:.2f}')
-    print(f'Trailing Profit Target: {trailing_take_profit_percentage:.2f}')
+    print(f'Stop Loss: {stop_loss_percentage:.2f}')
     print(f"Total Trades: {trade_count}")
     print(f"Percentage Profit/Loss: {profit_loss_percentage:.2f}%")
     print(f"Open positions: {len(positions)}")
@@ -132,10 +128,10 @@ def calculate_performance_metrics(trades, equity_curve, initial_balance):
 
 # Main function to run the backtest
 def main():
-    df = fetch_historical_data(symbol, timeframe, '2023-06-01')
+    df = fetch_historical_data(symbol, timeframe, '2023-07-01')
     df = calculate_indicators(df)
     df = generate_signals(df)
-    df, trades, equity_curve = backtest_strategy(df, initial_balance, investment_percentage, profit_target_percentage, trailing_take_profit_percentage, commission_percentage)
+    df, trades, equity_curve = backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage)
     df.set_index('timestamp', inplace=True)
     
     # Calculate performance metrics
@@ -147,7 +143,14 @@ def main():
     # Print trades
     # print("\nTrades:")
     # for trade in trades:
-    #     print(f"Entry Index: {trade['entry_index']}, Entry Price: {trade['entry_price']}, Exit Index: {trade['exit_index']}, Exit Price: {trade['exit_price']}, Amount: {trade['amount']}, Profit/Loss: {trade['profit_loss']:.2f} USDT, Percent Profit/Loss: {trade['percent_profit_loss']:.2f}%")
+    #     print(f"Entry Index: {trade['entry_index']}, Entry Price: {trade['entry_price']}, Exit Index: {trade['exit_index']}, Exit Price: {trade['exit_price']}, Amount: {trade['amount']:.6f}, Profit/Loss: {trade['profit_loss']:.2f} USDT, Percent Profit/Loss: {trade['percent_profit_loss']:.2f}%")
+
+
+    # Prepare data for buy and sell markers
+    buy_signals = df[df['buy_signal']].index
+    sell_signals = [df.index[trade['exit_index']] for trade in trades]
+    sell_prices = [trade['exit_price'] for trade in trades]
+    buy_prices = df.loc[buy_signals]['close']
     
     # Plotting
     plt.figure(figsize=(14, 7))
@@ -155,7 +158,9 @@ def main():
     # Plot market close price
     plt.subplot(2, 1, 1)
     plt.plot(df.index, df['close'], label='Market Price')
-    plt.title('Market Price')
+    plt.scatter(buy_signals, buy_prices, marker='^', color='green', label='Buy Signal', alpha=1)
+    plt.scatter(sell_signals, sell_prices, marker='v', color='red', label='Sell Signal', alpha=1)
+    plt.title('Market Price with Buy and Sell Signals')
     plt.legend()
     
     # Plot strategy equity curve
