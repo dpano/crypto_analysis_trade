@@ -4,13 +4,15 @@ from binance.client import Client
 import matplotlib.pyplot as plt
 from configuration.binance_config import config as binance_config
 import numpy as np
+import os
+import csv
 
 binance_config = binance_config()
 api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
-symbol = 'ETHUSDT'  # Example symbol
+symbol = 'LINKUSDT'  # Example symbol
 timeframe = Client.KLINE_INTERVAL_1HOUR  
 fast_length = 12
 slow_length = 26
@@ -24,6 +26,7 @@ initial_balance = 1180  # Initial balance in USDT
 investment_percentage = 0.15  # equity per trade
 stop_loss_percentage = 0.05  # 2% stop los5
 commission_percentage = 0.001  # 0.1% commission
+metrics_file = 'backtest_metrics.csv'
 
 # Fetch historical data (you may need to replace this with your data source)
 def fetch_historical_data(symbol, interval, start_str, end_str=None):
@@ -108,7 +111,7 @@ def backtest_strategy(df, initial_balance, investment_percentage, stop_loss_perc
     print(f"Percentage Profit/Loss: {profit_loss_percentage:.2f}%")
     print(f"Open positions: {len(positions)}")
 
-    return df, trades, equity_curve
+    return df, trades, equity_curve, positions
 
 # Calculate key performance metrics
 def calculate_performance_metrics(trades, equity_curve, initial_balance):
@@ -126,26 +129,24 @@ def calculate_performance_metrics(trades, equity_curve, initial_balance):
         'sharpe_ratio': sharpe_ratio
     }
 
-# Main function to run the backtest
-def main():
-    df = fetch_historical_data(symbol, timeframe, '2023-07-01')
-    df = calculate_indicators(df)
-    df = generate_signals(df)
-    df, trades, equity_curve = backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage)
-    df.set_index('timestamp', inplace=True)
+# Function to write metrics to a CSV file
+def write_metrics_to_file(metrics, positions):
+    file_exists = os.path.isfile(metrics_file)
     
-    # Calculate performance metrics
-    metrics = calculate_performance_metrics(trades, equity_curve, initial_balance)
-    print("\nPerformance Metrics:")
-    for key, value in metrics.items():
-        print(f"{key}: {value:.2f}")
-    
-    # Print trades
-    # print("\nTrades:")
-    # for trade in trades:
-    #     print(f"Entry Index: {trade['entry_index']}, Entry Price: {trade['entry_price']}, Exit Index: {trade['exit_index']}, Exit Price: {trade['exit_price']}, Amount: {trade['amount']:.6f}, Profit/Loss: {trade['profit_loss']:.2f} USDT, Percent Profit/Loss: {trade['percent_profit_loss']:.2f}%")
+    with open(metrics_file, 'a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(['symbol', 'timeframe', 'fast_length', 'slow_length', 'signal_smoothing', 'rsi_length',
+                              'rsi_entry_min', 'rsi_entry_max', 'initial_balance',
+                             'investment_percentage', 'stop_loss_percentage', 'commission_percentage', 'win_rate',
+                             'avg_profit_loss', 'max_drawdown', 'sharpe_ratio','open_positions'])
+        
+        writer.writerow([symbol, timeframe, fast_length, slow_length, signal_smoothing, rsi_length, 
+                         rsi_entry_min, rsi_entry_max, initial_balance, investment_percentage,
+                         stop_loss_percentage, commission_percentage, metrics['win_rate'], metrics['avg_profit_loss'],
+                         metrics['max_drawdown'], metrics['sharpe_ratio'], len(positions)])
 
-
+def plot_graphs(df, trades):
     # Prepare data for buy and sell markers
     buy_signals = df[df['buy_signal']].index
     sell_signals = [df.index[trade['exit_index']] for trade in trades]
@@ -171,8 +172,25 @@ def main():
     
     plt.tight_layout()
     plt.show()
+
+# Main function to run the backtest
+def main():
+    df = fetch_historical_data(symbol, timeframe, '2023-07-01')
+    df = calculate_indicators(df)
+    df = generate_signals(df)
+    df, trades, equity_curve , positions = backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage)
+    df.set_index('timestamp', inplace=True)
     
-    #print(df[['equity_curve']])
+    # Calculate performance metrics
+    metrics = calculate_performance_metrics(trades, equity_curve, initial_balance)
+    print("\nPerformance Metrics:")
+    for key, value in metrics.items():
+        print(f"{key}: {value:.2f}")
+    
+    # Write metrics to file
+    write_metrics_to_file(metrics, positions)
+    #plot_graphs(df, trades)   
+    
 
 if __name__ == "__main__":
     main()
