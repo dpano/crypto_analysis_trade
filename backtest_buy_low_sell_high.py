@@ -12,7 +12,7 @@ api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
-symbol = 'LINKUSDT'  # Example symbol
+symbols = ['ETHUSDT','TRXUSDT','BTCUSDT','SOLUSDT','FTMUSDT','NEARUSDT']  # Example symbol
 timeframe = Client.KLINE_INTERVAL_1HOUR  
 fast_length = 12
 slow_length = 26
@@ -54,7 +54,7 @@ def generate_signals(df):
     return df
 
 # Simulate trades
-def backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage):
+def backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage, symbol):
     balance = initial_balance
     positions = []  # List to hold open positions
     equity_curve = []
@@ -130,7 +130,7 @@ def calculate_performance_metrics(trades, equity_curve, initial_balance):
     }
 
 # Function to write metrics to a CSV file
-def write_metrics_to_file(metrics, positions):
+def write_metrics_to_file(metrics, positions, symbol):
     file_exists = os.path.isfile(metrics_file)
     
     with open(metrics_file, 'a', newline='') as file:
@@ -174,11 +174,11 @@ def plot_graphs(df, trades):
     plt.show()
 
 # Main function to run the backtest
-def main():
+def main(symbol):
     df = fetch_historical_data(symbol, timeframe, '2023-07-01')
     df = calculate_indicators(df)
     df = generate_signals(df)
-    df, trades, equity_curve , positions = backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage)
+    df, trades, equity_curve , positions = backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage, symbol)
     df.set_index('timestamp', inplace=True)
     
     # Calculate performance metrics
@@ -188,9 +188,10 @@ def main():
         print(f"{key}: {value:.2f}")
     
     # Write metrics to file
-    write_metrics_to_file(metrics, positions)
+    write_metrics_to_file(metrics, positions, symbol)
     #plot_graphs(df, trades)   
     
 
 if __name__ == "__main__":
-    main()
+    for symbol in symbols:
+        main(symbol)
