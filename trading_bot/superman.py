@@ -1,15 +1,13 @@
-import asyncio
-import pandas as pd
-import ta
-from binance.client import Client
-from binance.enums import *
-import time
 import sqlite3
-from configuration import telegram_config
+from binance.client import Client
+import pandas as pd
+import asyncio
+import time
 from configuration.binance_config import config as binance_config
-import numpy as np
-
+from configuration.telegram_config import config as telegram_config
 from notifications.telegram import send_telegram_message
+import ta
+from binance.enums import *
 
 # Load Binance API configuration
 binance_config = binance_config()
@@ -17,7 +15,7 @@ api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
-symbols = ['ETHUSDT', 'TRXUSDT', 'BTCUSDT', 'SOLUSDT', 'FTMUSDT', 'NEARUSDT']
+symbols = ['TRXUSDT','ETHUSDT']
 timeframe = Client.KLINE_INTERVAL_1HOUR
 fast_length = 12
 slow_length = 26
@@ -31,28 +29,39 @@ investment_percentage = 0.15
 stop_loss_percentage = 0.05
 
 # SQLite database setup
-conn = sqlite3.connect('trades.db')
-cursor = conn.cursor()
+def setup_database():
+    conn = sqlite3.connect('trades.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS trades (
+            id INTEGER PRIMARY KEY,
+            symbol TEXT,
+            side TEXT,
+            price REAL,
+            quantity REAL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
-# Create trades table if it doesn't exist
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS trades (
-        id INTEGER PRIMARY KEY,
-        symbol TEXT,
-        side TEXT,
-        price REAL,
-        quantity REAL,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-''')
-conn.commit()
+setup_database()
+
+def log_trade(symbol, side, price, quantity):
+    with sqlite3.connect('trades.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO trades (symbol, side, price, quantity)
+            VALUES (?, ?, ?, ?)
+        ''', (symbol, side, price, quantity))
+        conn.commit()
 
 def telegram(message):
     config = telegram_config()
     asyncio.run(send_telegram_message(config['token'], config['chat_id'], message))
 
 # Fetch historical data
-def fetch_historical_data(symbol, interval, limit=100):
+def fetch_historical_data(symbol, interval, limit=300):
     klines = client.get_klines(symbol=symbol, interval=interval, limit=limit)
     df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
     df['close'] = df['close'].astype(float)
@@ -83,11 +92,7 @@ def place_buy_order(symbol, amount):
             quantity=amount
         )
         if order:
-            cursor.execute('''
-                INSERT INTO trades (symbol, side, price, quantity)
-                VALUES (?, ?, ?, ?)
-            ''', (symbol, 'BUY', float(order['fills'][0]['price']), amount))
-            conn.commit()
+            log_trade(symbol, 'BUY', float(order['fills'][0]['price']), amount)
         return order
     except Exception as e:
         message = f"Error placing buy order: {e}"
@@ -103,11 +108,7 @@ def place_sell_order(symbol, amount):
             quantity=amount
         )
         if order:
-            cursor.execute('''
-                INSERT INTO trades (symbol, side, price, quantity)
-                VALUES (?, ?, ?, ?)
-            ''', (symbol, 'SELL', float(order['fills'][0]['price']), amount))
-            conn.commit()
+            log_trade(symbol, 'SELL', float(order['fills'][0]['price']), amount)
         return order
     except Exception as e:
         message = f"Error placing sell order: {e}"
@@ -143,16 +144,19 @@ def update_trailing_stop_loss(order_id, symbol, current_stop_loss_price, new_sto
         return None
 
 # Trading logic
-def trade(symbol, initial_balance):
+def trade(symbol):
     df = fetch_historical_data(symbol, timeframe)
     df = calculate_indicators(df)
     df = generate_signals(df)
     
     # Get the current price
     current_price = df['close'].iloc[-1]
-    
+    print(f"Current price ({symbol}) : {current_price}")
+    print(df.tail(10))
+    print
     # Check if there is a buy signal
     if df['buy_signal'].iloc[-1]:
+        print(f"BUY SIGNAL at {current_price}")
         balance = client.get_asset_balance(asset='USDT')
         usdt_balance = float(balance['free'])
         if usdt_balance > 10:  # Ensure there's enough balance to trade
@@ -191,6 +195,7 @@ def trade(symbol, initial_balance):
                     # Update the current stop loss price if the trailing stop loss is successfully updated
                     if new_stop_loss_price > stop_loss_price:
                         stop_loss_price = new_stop_loss_price
+                        print(f"Stop-loss price updated from {stop_loss_price} to {new_stop_loss_price}")
                     
                     time.sleep(60)  # Check every minute
 
@@ -198,17 +203,14 @@ def trade(symbol, initial_balance):
 def main():
     heartbeat = 0
     telegram('Superman BOT started')
-    initial_balance = float(client.get_asset_balance(asset='USDT')['free'])
     
     while True:
+        print(f"Iteration ({heartbeat + 1})")
         for symbol in symbols:
-            trade(symbol, initial_balance)
+            trade(symbol)
         
         # Wait for the next candle
         time.sleep(3600)
         heartbeat += 1
         if heartbeat % 24 == 0:
             telegram('Heartbeat - bot is alive')
-
-if __name__ == "__main__":
-    main()
