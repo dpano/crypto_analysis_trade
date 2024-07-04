@@ -12,7 +12,7 @@ api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
-symbols = ['ETHUSDT','TRXUSDT','BTCUSDT','SOLUSDT','FTMUSDT','NEARUSDT']  # Example symbol
+symbols = ['ETHUSDT','TRXUSDT','BTCUSDT']  # Example symbol
 timeframe = Client.KLINE_INTERVAL_1HOUR  
 fast_length = 12
 slow_length = 26
@@ -194,4 +194,5 @@ def main(symbol):
 
 if __name__ == "__main__":
     for symbol in symbols:
+        print(f'### {symbol} ### \n')
         main(symbol)
