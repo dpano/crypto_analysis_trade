@@ -152,8 +152,8 @@ def trade(symbol):
     # Get the current price
     current_price = df['close'].iloc[-1]
     print(f"Current price ({symbol}) : {current_price}")
-    print(df.tail(10))
-    print
+    print(df.tail(1))
+    print(f"buy_signal: {df['buy_signal'].iloc[-1]}")
     # Check if there is a buy signal
     if df['buy_signal'].iloc[-1]:
         print(f"BUY SIGNAL at {current_price}")
