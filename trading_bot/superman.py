@@ -159,6 +159,7 @@ def update_trailing_stop_loss(order_id, symbol, current_stop_loss_price, new_sto
 
 # Trading logic
 def trade(symbol):
+    logging.info(f"--- SYMBOL LOOP START ---")
     df = fetch_historical_data(symbol, timeframe)
     df = calculate_indicators(df)
     df = generate_signals(df)
@@ -197,7 +198,7 @@ def trade(symbol):
                 
                 # Monitor and update trailing stop loss
                 while True:
-                    logging.info("Monitor and update trailing stop loss")
+                    logging.info("--- UPDATE TRAILING STOP LOSS LOOP START ---")
                     df = fetch_historical_data(symbol, timeframe)
                     current_price = df['close'].iloc[-1]
                     
