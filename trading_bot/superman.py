@@ -8,6 +8,11 @@ from configuration.telegram_config import config as telegram_config
 from notifications.telegram import send_telegram_message
 import ta
 from binance.enums import *
+import logging
+
+# Configure logging
+logging.basicConfig(filename='trading_bot.log', level=logging.INFO, 
+                    format='%(asctime)s %(levelname)s:%(message)s')
 
 # Load Binance API configuration
 binance_config = binance_config()
@@ -15,7 +20,7 @@ api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
-symbols = ['TRXUSDT','ETHUSDT']
+symbols = ['TRXUSDT', 'ETHUSDT']
 timeframe = Client.KLINE_INTERVAL_1HOUR
 fast_length = 12
 slow_length = 26
@@ -44,6 +49,7 @@ def setup_database():
     ''')
     conn.commit()
     conn.close()
+    logging.info('Database setup complete')
 
 setup_database()
 
@@ -55,10 +61,12 @@ def log_trade(symbol, side, price, quantity):
             VALUES (?, ?, ?, ?)
         ''', (symbol, side, price, quantity))
         conn.commit()
+    logging.info(f"Trade logged: {symbol} {side} at {price} for {quantity}")
 
 def telegram(message):
     config = telegram_config()
     asyncio.run(send_telegram_message(config['token'], config['chat_id'], message))
+    logging.info(f"Telegram message sent: {message}")
 
 # Fetch historical data
 def fetch_historical_data(symbol, interval, limit=300):
@@ -66,6 +74,7 @@ def fetch_historical_data(symbol, interval, limit=300):
     df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
     df['close'] = df['close'].astype(float)
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    logging.info(f"Fetched historical data for {symbol}")
     return df
 
 # Calculate indicators
@@ -74,6 +83,7 @@ def calculate_indicators(df):
     df['macd'] = macd.macd()
     df['signal'] = macd.macd_signal()
     df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=rsi_length).rsi()
+    logging.info("Indicators calculated")
     return df
 
 # Generate signals
@@ -82,6 +92,7 @@ def generate_signals(df):
                         (df['macd'].shift() <= df['signal'].shift()) &
                         (df['rsi'] > rsi_entry_min) & 
                         (df['rsi'] < rsi_entry_max))
+    logging.info("Signals generated")
     return df
 
 # Execute buy order
@@ -93,11 +104,12 @@ def place_buy_order(symbol, amount):
         )
         if order:
             log_trade(symbol, 'BUY', float(order['fills'][0]['price']), amount)
+        logging.info(f"Buy order placed for {symbol} amount {amount}")
         return order
     except Exception as e:
         message = f"Error placing buy order: {e}"
         telegram(message)
-        print(message)
+        logging.error(message)
         return None
 
 # Execute sell order
@@ -109,11 +121,12 @@ def place_sell_order(symbol, amount):
         )
         if order:
             log_trade(symbol, 'SELL', float(order['fills'][0]['price']), amount)
+        logging.info(f"Sell order placed for {symbol} amount {amount}")
         return order
     except Exception as e:
         message = f"Error placing sell order: {e}"
         telegram(message)
-        print(message)
+        logging.error(message)
         return None
 
 # Update trailing stop loss
@@ -136,11 +149,12 @@ def update_trailing_stop_loss(order_id, symbol, current_stop_loss_price, new_sto
             price=str(round(new_stop_price, 2)),
             stopPrice=str(round(new_stop_price, 2))
         )
+        logging.info(f"Trailing stop loss updated for {symbol}")
         return new_order['orderId']
     except Exception as e:
         message = f"Error updating trailing stop loss: {e}"
         telegram(message)
-        print(message)
+        logging.error(message)
         return None
 
 # Trading logic
@@ -151,15 +165,15 @@ def trade(symbol):
     
     # Get the current price
     current_price = df['close'].iloc[-1]
-    print(f"Current price ({symbol}) : {current_price}")
-    print(df.tail(1))
-    print(f"buy_signal: {df['buy_signal'].iloc[-1]}")
+    logging.info(f"Current price ({symbol}) : {current_price}")
+    logging.info(f"buy_signal FOUND: {df['buy_signal'].iloc[-1]}")
     # Check if there is a buy signal
     if df['buy_signal'].iloc[-1]:
-        print(f"BUY SIGNAL at {current_price}")
+        logging.info(f"TRADE BUY SIGNAL at {current_price}")
         balance = client.get_asset_balance(asset='USDT')
         usdt_balance = float(balance['free'])
         if usdt_balance > 10:  # Ensure there's enough balance to trade
+            logging.info(f"USDT Balance is sufficient")
             investment_amount = usdt_balance * investment_percentage
             quantity = investment_amount / current_price
             buy_order = place_buy_order(symbol, round(quantity, 6))  # Buy with available USDT balance
@@ -178,11 +192,12 @@ def trade(symbol):
                 )
                 stop_loss_order_id = stop_loss_order['orderId']
                 message = f"Buy order placed for {symbol} at {current_price}, stop loss at {stop_loss_price}"
-                print(message)
+                logging.info(message)
                 telegram(message)
                 
                 # Monitor and update trailing stop loss
                 while True:
+                    logging.info("Monitor and update trailing stop loss")
                     df = fetch_historical_data(symbol, timeframe)
                     current_price = df['close'].iloc[-1]
                     
@@ -190,22 +205,24 @@ def trade(symbol):
                     stop_loss_order_id = update_trailing_stop_loss(stop_loss_order_id, symbol, stop_loss_price, new_stop_loss_price)
                     
                     if stop_loss_order_id is None:
+                        logging.info(f"stop_loss_order_id not found")
                         break
 
                     # Update the current stop loss price if the trailing stop loss is successfully updated
                     if new_stop_loss_price > stop_loss_price:
                         stop_loss_price = new_stop_loss_price
-                        print(f"Stop-loss price updated from {stop_loss_price} to {new_stop_loss_price}")
-                    
+                        logging.info(f"Stop-loss price updated from {stop_loss_price} to {new_stop_loss_price}")
+                    logging.info("Stop loss order is not updated")
                     time.sleep(60)  # Check every minute
 
 # Main trading loop
 def main():
     heartbeat = 0
     telegram('Superman BOT started')
+    logging.info('Superman BOT started')
     
     while True:
-        print(f"Iteration ({heartbeat + 1})")
+        logging.info(f"Iteration ({heartbeat + 1})")
         for symbol in symbols:
             trade(symbol)
         
@@ -214,3 +231,7 @@ def main():
         heartbeat += 1
         if heartbeat % 24 == 0:
             telegram('Heartbeat - bot is alive')
+            logging.info('Heartbeat - bot is alive')
+
+if __name__ == "__main__":
+    main()
