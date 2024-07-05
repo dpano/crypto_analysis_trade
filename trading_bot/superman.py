@@ -233,5 +233,3 @@ def main():
             telegram('Heartbeat - bot is alive')
             logging.info('Heartbeat - bot is alive')
 
-if __name__ == "__main__":
-    main()
