@@ -199,7 +199,7 @@ def trade(symbol):
                 # Monitor and update trailing stop loss
                 while True:
                     logging.info("--- UPDATE TRAILING STOP LOSS LOOP START ---")
-                    df = fetch_historical_data(symbol,  Client.KLINE_INTERVAL_1MINUTE)
+                    df = fetch_historical_data(symbol,  Client.KLINE_INTERVAL_1MINUTE,5)
                     current_price = df['close'].iloc[-1]
                     
                     new_stop_loss_price = current_price * (1 - stop_loss_percentage)
