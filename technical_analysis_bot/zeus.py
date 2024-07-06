@@ -53,25 +53,27 @@ def generate_signals(data):
 
     # Sell signal: RSI above 70 and price crosses below the upper Bollinger Band
     signals.loc[(data['rsi'] > 70) & (data['close'] < data['bb_high']), 'signal'] = -1
-
-    # Golden cross: SMA 50 goes over SMA 200
-    signals.loc[(data['sma_50'].iloc[-2] < data['sma_200'].iloc[-2]) & (data['sma_50'].iloc[-1] > data['sma_200'].iloc[-1]), 'signal'] = 2
-
-    # Death cross: SMA 50 goes below SMA 200
-    signals.loc[(data['sma_50'].iloc[-2] > data['sma_200'].iloc[-2]) & (data['sma_50'].iloc[-1] < data['sma_200'].iloc[-1]), 'signal'] = 3
+    
+    # Golden cross signal: 50 SMA crosses above 200 SMA
+    signals.loc[(data['sma_50'].shift(1) < data['sma_200'].shift(1)) & (data['sma_50'] > data['sma_200']), 'signal'] = 2
+    
+    # Death cross signal: 50 SMA crosses below 200 SMA
+    signals.loc[(data['sma_50'].shift(1) > data['sma_200'].shift(1)) & (data['sma_50'] < data['sma_200']), 'signal'] = -2
 
     return signals
 
 def get_last_signal(signals, data, symbol):
+    
     last_signal = signals['signal'].iloc[-1]
+    print(last_signal)
     if last_signal == 1:
         telegram(f"Buy signal generated for {symbol} at {signals.index[-1]}.\nPrice: {data['close'].iloc[-1]}")
     elif last_signal == -1:
         telegram(f"Sell signal generated for {symbol} at {signals.index[-1]}.\nPrice: {data['close'].iloc[-1]}")
     elif last_signal == 2:
-        telegram(f"Golden Cross signal generated for {symbol} at {signals.index[-1]}.\nPrice: {data['close'].iloc[-1]}")
-    elif last_signal == 3:
-        telegram(f"Death Cross signal generated for {symbol} at {signals.index[-1]}.\nPrice: {data['close'].iloc[-1]}")    
+        telegram(f"Golden cross detected for {symbol} at {signals.index[-1]}.\nPrice: {data['close'].iloc[-1]}")
+    elif last_signal == -2:
+        telegram(f"Death cross detected for {symbol} at {signals.index[-1]}.\nPrice: {data['close'].iloc[-1]}")
 
 def telegram(message):
     config = telegram_config()
