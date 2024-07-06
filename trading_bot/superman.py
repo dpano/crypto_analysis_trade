@@ -20,7 +20,7 @@ api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
-symbols = ['TRXUSDT', 'ETHUSDT']
+symbols = ['TRXUSDT', 'BTCUSDT']
 timeframe = Client.KLINE_INTERVAL_1HOUR
 fast_length = 12
 slow_length = 26

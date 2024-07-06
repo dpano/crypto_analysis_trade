@@ -12,8 +12,8 @@ api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
-symbols = ['ETHUSDT','TRXUSDT','BTCUSDT']  # Example symbol
-timeframe = Client.KLINE_INTERVAL_1HOUR  
+symbols = ['TRXUSDT', 'ETHUSDT', 'BTCUSDT', 'SHIBUSDT']  # Example symbol
+timeframe = Client.KLINE_INTERVAL_4HOUR  
 fast_length = 12
 slow_length = 26
 signal_smoothing = 9
@@ -146,6 +146,7 @@ def write_metrics_to_file(metrics, positions, symbol):
                          stop_loss_percentage, commission_percentage, metrics['win_rate'], metrics['avg_profit_loss'],
                          metrics['max_drawdown'], metrics['sharpe_ratio'], len(positions)])
 
+
 def plot_graphs(df, trades):
     # Prepare data for buy and sell markers
     buy_signals = df[df['buy_signal']].index
@@ -154,18 +155,35 @@ def plot_graphs(df, trades):
     buy_prices = df.loc[buy_signals]['close']
     
     # Plotting
-    plt.figure(figsize=(14, 7))
+    plt.figure(figsize=(14, 10))
     
     # Plot market close price
-    plt.subplot(2, 1, 1)
+    plt.subplot(4, 1, 1)
     plt.plot(df.index, df['close'], label='Market Price')
     plt.scatter(buy_signals, buy_prices, marker='^', color='green', label='Buy Signal', alpha=1)
     plt.scatter(sell_signals, sell_prices, marker='v', color='red', label='Sell Signal', alpha=1)
     plt.title('Market Price with Buy and Sell Signals')
     plt.legend()
     
+    # Plot MACD and signal line
+    plt.subplot(4, 1, 2)
+    plt.plot(df.index, df['macd'], label='MACD', color='blue')
+    plt.plot(df.index, df['signal'], label='Signal Line', color='red')
+    plt.title('MACD and Signal Line')
+    plt.legend()
+    
+    # Plot RSI
+    plt.subplot(4, 1, 3)
+    plt.plot(df.index, df['rsi'], label='RSI', color='purple')
+    plt.axhline(y=rsi_overbought, color='red', linestyle='--', label='Overbought')
+    plt.axhline(y=rsi_oversold, color='green', linestyle='--', label='Oversold')
+    plt.axhline(y=rsi_entry_min, color='blue', linestyle='--', label='Entry Min')
+    plt.axhline(y=rsi_entry_max, color='orange', linestyle='--', label='Entry Max')
+    plt.title('RSI')
+    plt.legend()
+    
     # Plot strategy equity curve
-    plt.subplot(2, 1, 2)
+    plt.subplot(4, 1, 4)
     plt.plot(df.index, df['equity_curve'], label='Strategy Equity Curve', color='orange')
     plt.title('Strategy Equity Curve')
     plt.legend()
@@ -173,9 +191,10 @@ def plot_graphs(df, trades):
     plt.tight_layout()
     plt.show()
 
+
 # Main function to run the backtest
 def main(symbol):
-    df = fetch_historical_data(symbol, timeframe, '2023-07-01')
+    df = fetch_historical_data(symbol, timeframe, '2023-07-06')
     df = calculate_indicators(df)
     df = generate_signals(df)
     df, trades, equity_curve , positions = backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage, symbol)
@@ -189,7 +208,7 @@ def main(symbol):
     
     # Write metrics to file
     write_metrics_to_file(metrics, positions, symbol)
-    #plot_graphs(df, trades)   
+    # plot_graphs(df, trades)   
     
 
 if __name__ == "__main__":
