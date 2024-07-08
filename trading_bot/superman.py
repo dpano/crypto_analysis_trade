@@ -99,16 +99,46 @@ def generate_signals(df):
     logging.info("Signals generated")
     return df
 
-# Execute buy order
+def get_lot_size(symbol):
+    info = client.get_symbol_info(symbol)
+    for filt in info['filters']:
+        if filt['filterType'] == 'LOT_SIZE':
+            return {
+                'minQty': float(filt['minQty']),
+                'maxQty': float(filt['maxQty']),
+                'stepSize': float(filt['stepSize'])
+            }
+    return None
+
+def adjust_amount(amount, step_size):
+    return round(amount - (amount % step_size), 8)
+
 def place_buy_order(symbol, amount):
     try:
-        order = client.order_market_buy(
+        lot_size = get_lot_size(symbol)
+        if not lot_size:
+            raise Exception("LOT_SIZE filter not found for the symbol")
+
+        # Ensure the amount is within the allowed range
+        if amount < lot_size['minQty']:
+            raise Exception(f"Amount {amount} is less than the minimum allowed quantity {lot_size['minQty']}")
+        if amount > lot_size['maxQty']:
+            raise Exception(f"Amount {amount} is greater than the maximum allowed quantity {lot_size['maxQty']}")
+
+        # Adjust the amount to be a multiple of stepSize
+        amount = adjust_amount(amount, lot_size['stepSize'])
+
+        order = client.create_order(
             symbol=symbol,
+            side=Client.SIDE_BUY,
+            type=Client.ORDER_TYPE_MARKET,
             quantity=amount
         )
         if order:
             logging.info(f"Buy order placed for {symbol} amount {amount}")
-            return order
+            return order, amount
+        else:
+            return None, None
     except Exception as e:
         message = f"Error placing buy order: {e}"
         telegram(message)
@@ -154,14 +184,14 @@ def trade(symbol):
             logging.info(f"USDT Balance is sufficient")
             investment_amount = usdt_balance * investment_percentage
             quantity = investment_amount / current_price
-            buy_order = place_buy_order(symbol, round(quantity, 6))  # Buy with available USDT balance
+            buy_order, adjusted_amount = place_buy_order(symbol, quantity)  # Buy with available USDT balance
             
             if buy_order:
                 open_price = float(buy_order['fills'][0]['price'])
                 open_datetime = pd.to_datetime(buy_order['transactTime'], unit='ms')
                 
                 # Place trailing stop order
-                trailing_stop_order = place_trailing_stop_order(symbol, round(quantity, 6), trailing_stop_callback)
+                trailing_stop_order = place_trailing_stop_order(symbol, adjusted_amount, trailing_stop_callback)
                 if trailing_stop_order:
                     message = f"Sell order placed for {symbol} at {current_price}, trailing stop set at {trailing_stop_callback * 100}%"
                     logging.info(message)
@@ -174,7 +204,7 @@ def trade(symbol):
                         close_price = float(order_status['price'])
                         close_datetime = pd.to_datetime(order_status['updateTime'], unit='ms')
                         profit_loss_percentage = ((close_price - open_price) / open_price) * 100
-                        log_trade(symbol, 'SELL', open_price, close_price, profit_loss_percentage, open_datetime, close_datetime, round(quantity, 6))
+                        log_trade(symbol, 'SELL', open_price, close_price, profit_loss_percentage, open_datetime, close_datetime, adjusted_amount)
                         break
                     time.sleep(60)  # Check every minute
 
