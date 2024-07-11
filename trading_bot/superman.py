@@ -235,8 +235,8 @@ def trade(symbol):
 
                     # Update the current stop loss price if the trailing stop loss is successfully updated
                     if new_stop_loss_price > stop_loss_price:
-                        stop_loss_price = new_stop_loss_price
                         logging.info(f"Stop-loss price updated from {stop_loss_price} to {new_stop_loss_price}")
+                        stop_loss_price = new_stop_loss_price                        
                     logging.info(f"Stop loss order is not updated and remains at: {stop_loss_price}. ")
                     time.sleep(60)  # Check every minute
 
