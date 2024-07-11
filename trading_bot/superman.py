@@ -208,7 +208,7 @@ def trade(symbol):
                     stopPrice=str(round(stop_loss_price, 2))
                 )
                 stop_loss_order_id = stop_loss_order['orderId']
-                message = f"Buy order placed for {symbol} at {current_price}, stop loss at {stop_loss_price}"
+                message = f"Sell order placed for {symbol} at {current_price}, stop loss at {stop_loss_price}"
                 logging.info(message)
                 telegram(message)
                 
@@ -219,13 +219,15 @@ def trade(symbol):
                 while True:
                     logging.info("--- UPDATE TRAILING STOP LOSS LOOP START ---")
                     df = fetch_historical_data(symbol,  Client.KLINE_INTERVAL_1MINUTE, 5)
-                    current_price = df['close'].iloc[-1]
+                    close_price = df['close'].iloc[-1]
                     
-                    new_stop_loss_price = current_price * (1 - stop_loss_percentage)
+                    new_stop_loss_price = close_price * (1 - stop_loss_percentage)
                     stop_loss_order_id = update_trailing_stop_loss(stop_loss_order_id, symbol, stop_loss_price, new_stop_loss_price)
                     
                     if stop_loss_order_id is None:
-                        logging.info(f"Order is filled for order with ID: {stop_loss_order['orderId']}")
+                        sell_message = f"Order is filled for order with ID: {stop_loss_order['orderId']}"
+                        logging.info(sell_message)
+                        telegram(sell_message)
                         close_datetime = pd.to_datetime('now')
                         profit_loss_percentage = (current_price - stop_loss_price) / stop_loss_price * 100
                         log_trade(symbol, 'SELL', current_price, stop_loss_price, profit_loss_percentage, open_datetime, close_datetime, amount)
@@ -235,7 +237,7 @@ def trade(symbol):
                     if new_stop_loss_price > stop_loss_price:
                         stop_loss_price = new_stop_loss_price
                         logging.info(f"Stop-loss price updated from {stop_loss_price} to {new_stop_loss_price}")
-                    logging.info(f"Stop loss order is not updated and remains at: {stop_loss_price}")
+                    logging.info(f"Stop loss order is not updated and remains at: {stop_loss_price}. ")
                     time.sleep(60)  # Check every minute
 
 # Main trading loop
