@@ -9,10 +9,11 @@ from notifications.telegram import send_telegram_message
 import ta
 from binance.enums import *
 import logging
+import threading
 
 # Configure logging
 logging.basicConfig(filename='trading_bot.log', level=logging.INFO, 
-                    format='%(asctime)s %(levelname)s:%(message)s')
+                    format='%(asctime)s %(message)s')
 
 # Load Binance API configuration
 binance_config = binance_config()
@@ -173,6 +174,35 @@ def update_trailing_stop_loss(order_id, symbol, current_stop_loss_price, new_sto
         logging.error(message)
         return None
 
+# Update trailing stop loss in a separate thread
+def monitor_trailing_stop_loss(symbol, stop_loss_order_id, stop_loss_price, amount, open_datetime, current_price):
+    while True:
+        df = fetch_historical_data(symbol, Client.KLINE_INTERVAL_1MINUTE, 5)
+        close_price = df['close'].iloc[-1]
+        
+        new_stop_loss_price = close_price * (1 - stop_loss_percentage)
+        stop_loss_order_id = update_trailing_stop_loss(stop_loss_order_id, symbol, stop_loss_price, new_stop_loss_price)
+        
+        if stop_loss_order_id is None:            
+            close_datetime = pd.to_datetime('now')
+            profit_loss_percentage = (current_price - stop_loss_price) / stop_loss_price * 100
+            
+            log_trade(symbol, 'SELL', current_price, stop_loss_price, profit_loss_percentage, open_datetime, close_datetime, amount)
+            
+            sell_message = f"Order is filled with profit/loss of {profit_loss_percentage}% for {symbol} with price: {stop_loss_price}, amount: {amount}"
+            logging.info(sell_message)
+            telegram(sell_message)
+
+            break
+
+        # Update the current stop loss price if the trailing stop loss is successfully updated
+        if new_stop_loss_price > stop_loss_price:
+            logging.info(f"Stop-loss price for {symbol} updated from {stop_loss_price} to {new_stop_loss_price}. Amount: {amount}")
+            stop_loss_price = new_stop_loss_price                        
+        logging.info(f"Stop loss order for {symbol} is not updated and remains at: {stop_loss_price}. Amount: {amount} ")
+        
+    
+
 # Trading logic
 def trade(symbol):
     logging.info(f"--- SYMBOL LOOP START ---")
@@ -215,30 +245,9 @@ def trade(symbol):
                 # Log the buy trade
                 open_datetime = pd.to_datetime('now')
 
-                # Monitor and update trailing stop loss
-                while True:
-                    logging.info("--- UPDATE TRAILING STOP LOSS LOOP START ---")
-                    df = fetch_historical_data(symbol,  Client.KLINE_INTERVAL_1MINUTE, 5)
-                    close_price = df['close'].iloc[-1]
-                    
-                    new_stop_loss_price = close_price * (1 - stop_loss_percentage)
-                    stop_loss_order_id = update_trailing_stop_loss(stop_loss_order_id, symbol, stop_loss_price, new_stop_loss_price)
-                    
-                    if stop_loss_order_id is None:
-                        sell_message = f"Order is filled for order with ID: {stop_loss_order['orderId']}"
-                        logging.info(sell_message)
-                        telegram(sell_message)
-                        close_datetime = pd.to_datetime('now')
-                        profit_loss_percentage = (current_price - stop_loss_price) / stop_loss_price * 100
-                        log_trade(symbol, 'SELL', current_price, stop_loss_price, profit_loss_percentage, open_datetime, close_datetime, amount)
-                        break
-
-                    # Update the current stop loss price if the trailing stop loss is successfully updated
-                    if new_stop_loss_price > stop_loss_price:
-                        logging.info(f"Stop-loss price updated from {stop_loss_price} to {new_stop_loss_price}")
-                        stop_loss_price = new_stop_loss_price                        
-                    logging.info(f"Stop loss order is not updated and remains at: {stop_loss_price}. ")
-                    time.sleep(60)  # Check every minute
+                # Start a new thread for trailing stop loss monitoring
+                t = threading.Thread(target=monitor_trailing_stop_loss, args=(symbol, stop_loss_order_id, stop_loss_price, amount, open_datetime, current_price))
+                t.start()
 
 # Main trading loop
 def main():
@@ -257,3 +266,4 @@ def main():
         if heartbeat % 24 == 0:
             telegram('Heartbeat - bot is alive')
             logging.info('Heartbeat - bot is alive')
+
