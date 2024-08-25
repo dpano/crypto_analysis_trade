@@ -79,7 +79,7 @@ def telegram(message):
     config = telegram_config()
     asyncio.run(send_telegram_message(config['token'], config['chat_id'], message))
 
-def zeus_main(symbols=['BTCUSDT', 'ETHUSDT', 'TRXUSDT', 'SOLUSDT'], sleep=3600):
+def zeus_main(symbols=['BTCUSDT', 'ETHUSDT', 'TRXUSDT', 'SOLUSDT','BNBUSDT','XRPUSDT'], sleep=3600):
     heartbeat = 0
     while True:
         for symbol in symbols:
