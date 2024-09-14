@@ -15,6 +15,7 @@ from notifications.telegram import send_telegram_message
 logging.basicConfig(filename='trading_bot.log', level=logging.INFO, 
                     format='%(asctime)s %(message)s')
 class CryptoTradingBot:
+    heartbeat = 0
     def __init__(self, trading_pairs_config):
         bnc = binance_config()
         self.client = Client(bnc['api_key'], bnc['api_secret'])
@@ -168,6 +169,9 @@ class CryptoTradingBot:
                                 self.store_position(trading_pair, entry_price, quantity, take_profit_price, buy_order['orderId'], sell_order['orderId'])
 
             self.check_completed_orders()
+            if self.heartbeat % 1440 == 0:
+                self.telegram('Heartbeat - Claude is alive')
+                logging.info('Heartbeat - Claude is alive')
             time.sleep(60)  # Wait for 1 minute before next iteration
 
     def check_completed_orders(self):
