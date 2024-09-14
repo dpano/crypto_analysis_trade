@@ -1,20 +1,30 @@
-import ccxt
+import asyncio
+import logging
+import time
 import pandas as pd
 import sqlite3
-import time
+from binance.client import Client
+from binance.exceptions import BinanceAPIException
 from ta.momentum import RSIIndicator
 from ta.volatility import BollingerBands
 from ta.trend import SMAIndicator
 from configuration.binance_config import config as binance_config
-
+from configuration.telegram_config import config as telegram_config
+from notifications.telegram import send_telegram_message
+# Configure logging
+logging.basicConfig(filename='trading_bot.log', level=logging.INFO, 
+                    format='%(asctime)s %(message)s')
 class CryptoTradingBot:
-    def __init__(self, exchange, trading_pairs_config):
+    def __init__(self, trading_pairs_config):
         bnc = binance_config()
-        self.exchange = ccxt.Exchange({'apiKey': bnc['api_key'], 'secret': bnc['api_secret']})
+        self.client = Client(bnc['api_key'], bnc['api_secret'])
         self.trading_pairs_config = trading_pairs_config
         self.conn = sqlite3.connect('trading_positions.db')
         self.create_positions_table()
-
+    def telegram(self, message):
+        config = telegram_config()
+        asyncio.run(send_telegram_message(config['token'], config['chat_id'], message))
+        logging.info(f"Telegram message sent: {message}")
     def create_positions_table(self):
         cursor = self.conn.cursor()
         cursor.execute('''
@@ -33,10 +43,11 @@ class CryptoTradingBot:
         ''')
         self.conn.commit()
 
-    def get_market_data(self, symbol, timeframe='1h', limit=100):
-        ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    def get_market_data(self, symbol, interval=Client.KLINE_INTERVAL_1HOUR, limit=210):
+        klines = self.client.get_klines(symbol=symbol, interval=interval, limit=limit)
+        df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['close'] = df['close'].astype(float)
         return df
 
     def calculate_indicators(self, df):
@@ -61,20 +72,36 @@ class CryptoTradingBot:
 
         return rsi_condition and (bb_condition or sma_condition)
 
-    def place_buy_order(self, symbol, amount):
+    def place_buy_order(self, symbol, quantity):
         try:
-            order = self.exchange.create_market_buy_order(symbol, amount)
+            order = self.client.create_order(
+                symbol=symbol,
+                side=Client.SIDE_BUY,
+                type=Client.ORDER_TYPE_MARKET,
+                quantity=quantity
+            )
             return order
-        except Exception as e:
-            print(f"Error placing buy order: {e}")
+        except BinanceAPIException as e:
+            message = f"Error placing buy order: {e}"
+            print(message)
+            logging.error(message)
             return None
 
-    def place_sell_order(self, symbol, amount, price):
+    def place_sell_order(self, symbol, quantity, price):
         try:
-            order = self.exchange.create_limit_sell_order(symbol, amount, price)
+            order = self.client.create_order(
+                symbol=symbol,
+                side=Client.SIDE_SELL,
+                type=Client.ORDER_TYPE_LIMIT,
+                timeInForce=Client.TIME_IN_FORCE_GTC,
+                quantity=quantity,
+                price=price
+            )
             return order
-        except Exception as e:
-            print(f"Error placing sell order: {e}")
+        except BinanceAPIException as e:
+            message = f"Error placing sell order: {e}"
+            print(message)
+            logging.error(message)
             return None
 
     def store_position(self, trading_pair, entry_price, quantity, take_profit_price, buy_order_id, sell_order_id):
@@ -93,7 +120,10 @@ class CryptoTradingBot:
             WHERE id = ?
         ''', ('closed', actual_profit, actual_profit_percentage, position_id))
         self.conn.commit()
-
+    
+    def adjust_amount(self, amount, step_size):
+        return round(amount - (amount % step_size), 8)
+    
     def run(self):
         while True:
             for trading_pair, config in self.trading_pairs_config.items():
@@ -101,22 +131,41 @@ class CryptoTradingBot:
                 df = self.calculate_indicators(df)
 
                 if self.generate_buy_signal(df):
-                    balance = self.exchange.fetch_balance()
-                    usdt_balance = balance['USDT']['free']
+                    account = self.client.get_account()
+                    usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
                     investment_amount = usdt_balance * config['diversification_percentage']
 
                     if investment_amount > 10:
-                        buy_order = self.place_buy_order(trading_pair, investment_amount)
+                        symbol_info = self.client.get_symbol_info(trading_pair)
+                        lot_size_filter = next(filter(lambda x: x['filterType'] == 'LOT_SIZE', symbol_info['filters']))
+                        amount = investment_amount / float(df['close'].iloc[-1])
+                        
+                        if amount < float(lot_size_filter['minQty']):
+                            raise Exception(f"Amount {amount} is less than the minimum allowed quantity {lot_size_filter['minQty']}")
+                        if amount > float(lot_size_filter['maxQty']):
+                            raise Exception(f"Amount {amount} is greater than the maximum allowed quantity {lot_size_filter['maxQty']}")
+                        
+                        step_size = float(lot_size_filter['stepSize'])
+                        quantity = self.adjust_amount(amount, step_size)
+
+                        buy_order = self.place_buy_order(trading_pair, quantity)
                         if buy_order:
-                            entry_price = buy_order['price']
-                            quantity = buy_order['amount']
+                            message = f"Buy order placed for: {trading_pair}, amount: {quantity}"
+                            print(message)
+                            self.telegram(message)
+                            logging.info(message)
+                            entry_price = float(buy_order['fills'][0]['price'])
+                            quantity = float(buy_order['executedQty'])
                             take_profit_price = entry_price * (1 + config['take_profit_percentage'])
 
                             sell_order = self.place_sell_order(trading_pair, quantity, take_profit_price)
 
-                            if sell_order:
-                                print(f"Sell order placed for {trading_pair}")
-                                self.store_position(trading_pair, entry_price, quantity, take_profit_price, buy_order['id'], sell_order['id'])
+                            if sell_order:            
+                                message = f"Sell order placed for {trading_pair}"
+                                print(message)
+                                logging.info(message)
+                                self.telegram(message)
+                                self.store_position(trading_pair, entry_price, quantity, take_profit_price, buy_order['orderId'], sell_order['orderId'])
 
             self.check_completed_orders()
             time.sleep(60)  # Wait for 1 minute before next iteration
@@ -129,34 +178,19 @@ class CryptoTradingBot:
         for position in open_positions:
             position_id, trading_pair, entry_price, quantity, sell_order_id = position
             try:
-                order = self.exchange.fetch_order(sell_order_id, trading_pair)
+                order = self.client.get_order(symbol=trading_pair, orderId=sell_order_id)
 
-                if order['status'] == 'closed':
-                    actual_profit = (order['price'] - entry_price) * quantity
-                    actual_profit_percentage = (order['price'] - entry_price) / entry_price * 100
+                if order['status'] == Client.ORDER_STATUS_FILLED:
+                    actual_profit = (float(order['price']) - entry_price) * quantity
+                    actual_profit_percentage = (float(order['price']) - entry_price) / entry_price * 100
                     self.update_position(position_id, actual_profit, actual_profit_percentage)
-                    print(f"Position closed for {trading_pair}. Profit: {actual_profit} USDT ({actual_profit_percentage}%)")
-            except Exception as e:
-                print(f"Error checking order status for position {position_id}: {e}")
-
-if __name__ == "__main__":
-    exchange = ccxt.binance()  # Use Binance as an example, replace with your preferred exchange
-    
-    # Define trading pairs with their individual take-profit and diversification percentages
-    trading_pairs_config = {
-        'BTC/USDT': {
-            'take_profit_percentage': 0.03,  # 3% take profit for BTC
-            'diversification_percentage': 0.05  # 5% of available balance for BTC
-        },
-        'ETH/USDT': {
-            'take_profit_percentage': 0.04,  # 4% take profit for ETH
-            'diversification_percentage': 0.03  # 3% of available balance for ETH
-        },
-        'ADA/USDT': {
-            'take_profit_percentage': 0.05,  # 5% take profit for ADA
-            'diversification_percentage': 0.02  # 2% of available balance for ADA
-        },
-    }
-
-    bot = CryptoTradingBot(exchange, trading_pairs_config)
-    bot.run()
+                    
+                    message = f"Position closed for {trading_pair}. Profit: {actual_profit} USDT ({actual_profit_percentage}%)"
+                    print(message)
+                    self.telegram(message)
+                    logging.info(message)
+            except BinanceAPIException as e:
+                message = f"Error checking order status for position {position_id}: {e}"
+                print(message)
+                self.telegram(message)
+                logging.error(message)
