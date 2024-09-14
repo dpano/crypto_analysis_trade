@@ -66,13 +66,12 @@ class CryptoTradingBot:
         df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=self.rsi_length).rsi()
         return df
 
-    def generate_buy_signal(self, row, prev_row):
-        buysignal = ((row['macd'] > row['signal']) & 
-                        (prev_row['macd'] <= prev_row['signal']) &
-                        (row['rsi'] > self.rsi_entry_min) & 
-                        (row['rsi'] < self.rsi_entry_max))
-
-        return buysignal
+    def generate_buy_signal(self, df):
+        df['buy_signal'] = ((df['macd'] > df['signal']) & 
+                        (df['macd'].shift() <= df['signal'].shift()) &
+                        (df['rsi'] > self.rsi_entry_min) & 
+                        (df['rsi'] < self.rsi_entry_max))
+        return df
 
     def place_buy_order(self, symbol, quantity):
         try:
@@ -131,8 +130,8 @@ class CryptoTradingBot:
             for trading_pair, config in self.trading_pairs_config.items():
                 df = self.get_market_data(trading_pair)
                 df = self.calculate_indicators(df)
-
-                if self.generate_buy_signal(df):
+                df = self.generate_buy_signal(df)
+                if df['buy_signal'].iloc[-1]:
                     account = self.client.get_account()
                     usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
                     investment_amount = usdt_balance * config['diversification_percentage']
