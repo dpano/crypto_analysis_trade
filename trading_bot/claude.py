@@ -5,6 +5,7 @@ import pandas as pd
 import sqlite3
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
+import ta
 from ta.momentum import RSIIndicator
 from ta.volatility import BollingerBands
 from ta.trend import SMAIndicator
@@ -22,6 +23,13 @@ class CryptoTradingBot:
         self.trading_pairs_config = trading_pairs_config
         self.conn = sqlite3.connect('trading_positions.db')
         self.create_positions_table()
+        self.fast_length = 12
+        self.slow_length = 26
+        self.signal_smoothing = 9
+        self.rsi_length = 14
+        self.rsi_entry_min = 50
+        self.rsi_entry_max = 70
+
     def telegram(self, message):
         config = telegram_config()
         asyncio.run(send_telegram_message(config['token'], config['chat_id'], message))
@@ -52,26 +60,19 @@ class CryptoTradingBot:
         return df
 
     def calculate_indicators(self, df):
-        rsi = RSIIndicator(df['close'], window=14)
-        bb = BollingerBands(df['close'], window=20, window_dev=2)
-        sma50 = SMAIndicator(df['close'], window=50)
-        sma200 = SMAIndicator(df['close'], window=200)
-
-        df['rsi'] = rsi.rsi()
-        df['bb_lower'] = bb.bollinger_lband()
-        df['sma50'] = sma50.sma_indicator()
-        df['sma200'] = sma200.sma_indicator()
+        macd = ta.trend.MACD(df['close'], window_slow=self.slow_length, window_fast=self.fast_length, window_sign=self.signal_smoothing)
+        df['macd'] = macd.macd()
+        df['signal'] = macd.macd_signal()
+        df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=self.rsi_length).rsi()
         return df
 
-    def generate_buy_signal(self, df):
-        last_row = df.iloc[-1]
-        prev_row = df.iloc[-2]
+    def generate_buy_signal(self, row, prev_row):
+        buysignal = ((row['macd'] > row['signal']) & 
+                        (prev_row['macd'] <= prev_row['signal']) &
+                        (row['rsi'] > self.rsi_entry_min) & 
+                        (row['rsi'] < self.rsi_entry_max))
 
-        rsi_condition = last_row['rsi'] < 30
-        bb_condition = prev_row['close'] <= prev_row['bb_lower'] and last_row['close'] > last_row['bb_lower']
-        sma_condition = prev_row['sma50'] <= prev_row['sma200'] and last_row['sma50'] > last_row['sma200']
-
-        return rsi_condition and (bb_condition or sma_condition)
+        return buysignal
 
     def place_buy_order(self, symbol, quantity):
         try:
