@@ -12,7 +12,7 @@ api_key = binance_config['api_key']
 api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
-symbols = ['TRXUSDT', 'ETHUSDT', 'BTCUSDT', 'SHIBUSDT']  # Example symbol
+symbols = ['TRXUSDT', 'BTCUSDT','ETHUSDT']  # Example symbol
 timeframe = Client.KLINE_INTERVAL_4HOUR  
 fast_length = 12
 slow_length = 26
@@ -194,7 +194,7 @@ def plot_graphs(df, trades):
 
 # Main function to run the backtest
 def main(symbol):
-    df = fetch_historical_data(symbol, timeframe, '2023-07-06')
+    df = fetch_historical_data(symbol, timeframe, '2024-07-01')
     df = calculate_indicators(df)
     df = generate_signals(df)
     df, trades, equity_curve , positions = backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage, symbol)
@@ -208,7 +208,7 @@ def main(symbol):
     
     # Write metrics to file
     write_metrics_to_file(metrics, positions, symbol)
-    # plot_graphs(df, trades)   
+    plot_graphs(df, trades)   
     
 
 if __name__ == "__main__":
