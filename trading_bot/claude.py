@@ -169,9 +169,11 @@ class CryptoTradingBot:
                                 self.store_position(trading_pair, entry_price, quantity, take_profit_price, buy_order['orderId'], sell_order['orderId'])
 
             self.check_completed_orders()
+            self.heartbeat += 1
             if self.heartbeat % 1440 == 0:
                 self.telegram('Heartbeat - Claude is alive')
                 logging.info('Heartbeat - Claude is alive')
+                
             time.sleep(60)  # Wait for 1 minute before next iteration
 
     def check_completed_orders(self):
