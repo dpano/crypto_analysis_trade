@@ -57,6 +57,9 @@ class CryptoTradingBot:
         df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         df['close'] = df['close'].astype(float)
+        message = f"---Get data for symbol---: {symbol}"
+        logging.info(message)
+        print(message)
         return df
 
     def calculate_indicators(self, df):
