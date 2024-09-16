@@ -20,16 +20,20 @@ if __name__ == "__main__":
     trading_pairs_config = {
         'BTCUSDT': {
             'take_profit_percentage': 0.03,  # 3% take profit for BTC
-            'diversification_percentage': 0.4
+            'diversification_percentage': 0.15
         },
         'SOLUSDT': {
-            'take_profit_percentage': 0.04,  # 4% take profit for ETH
-            'diversification_percentage': 0.30  # 3% of available balance for ETH
+            'take_profit_percentage': 0.03,  # 4% take profit for ETH
+            'diversification_percentage': 0.10  # 3% of available balance for ETH
         },
         'TRXUSDT': {
-            'take_profit_percentage': 0.05,  # 5% take profit for ADA
-            'diversification_percentage': 0.2  # 2% of available balance for ADA
+            'take_profit_percentage': 0.03,  # 5% take profit for ADA
+            'diversification_percentage': 0.10  # 2% of available balance for ADA
         },
+        'ETHUSDT': {
+            'take_profit_percentage': 0.03,  # 5% take profit for ADA
+            'diversification_percentage': 0.10  # 2% of available balance for ADA
+        }
     }
 
     bot = CryptoTradingBot(trading_pairs_config)

@@ -157,17 +157,24 @@ class CryptoTradingBot:
                     investment_amount = usdt_balance * config['diversification_percentage']
 
                     amount = investment_amount / float(df['close'].iloc[-1])
-
-                    if investment_amount > 10:
-                        lot_size = self.get_lot_size(trading_pair)
+                    
+                    lot_size = self.get_lot_size(trading_pair)
+                    
                     if not lot_size:
                         raise Exception("LOT_SIZE filter not found for the symbol")
                     
                      # Ensure the amount is within the allowed range
                     if amount < lot_size['minQty']:
-                        raise Exception(f"Amount {amount} is less than the minimum allowed quantity {lot_size['minQty']}")
+                        message = f"Amount {amount} is less than the minimum allowed quantity {lot_size['minQty']}"
+                        logging.info(message)
+                        print(message)
+                        continue
+                        
                     if amount > lot_size['maxQty']:
-                        raise Exception(f"Amount {amount} is greater than the maximum allowed quantity {lot_size['maxQty']}")
+                        message = f"Amount {amount} is greater than the maximum allowed quantity {lot_size['maxQty']}"
+                        logging.info(message)
+                        print(message)
+                        continue
                     
                     quantity = self.adjust_amount(amount, float(lot_size['stepSize']))
                     
