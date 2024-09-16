@@ -105,7 +105,7 @@ class CryptoTradingBot:
                 type=Client.ORDER_TYPE_LIMIT,
                 timeInForce=Client.TIME_IN_FORCE_GTC,
                 quantity=quantity,
-                price=price
+                price=str(round(price, 2))
             )
             return order
         except BinanceAPIException as e:
