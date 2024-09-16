@@ -156,6 +156,8 @@ class CryptoTradingBot:
                     usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
                     investment_amount = usdt_balance * config['diversification_percentage']
 
+                    amount = investment_amount / float(df['close'].iloc[-1])
+
                     if investment_amount > 10:
                         lot_size = self.get_lot_size(trading_pair)
                     if not lot_size:
@@ -166,9 +168,7 @@ class CryptoTradingBot:
                         raise Exception(f"Amount {amount} is less than the minimum allowed quantity {lot_size['minQty']}")
                     if amount > lot_size['maxQty']:
                         raise Exception(f"Amount {amount} is greater than the maximum allowed quantity {lot_size['maxQty']}")
-
-
-                    amount = investment_amount / float(df['close'].iloc[-1])
+                    
                     quantity = self.adjust_amount(amount, float(lot_size['stepSize']))
                     
                     buy_order = self.place_buy_order(trading_pair, quantity)
