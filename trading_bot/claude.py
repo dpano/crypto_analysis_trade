@@ -5,6 +5,7 @@ import pandas as pd
 import sqlite3
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
+import ta
 from ta.momentum import RSIIndicator
 from ta.volatility import BollingerBands
 from ta.trend import SMAIndicator
@@ -22,6 +23,13 @@ class CryptoTradingBot:
         self.trading_pairs_config = trading_pairs_config
         self.conn = sqlite3.connect('trading_positions.db')
         self.create_positions_table()
+        self.fast_length = 12
+        self.slow_length = 26
+        self.signal_smoothing = 9
+        self.rsi_length = 14
+        self.rsi_entry_min = 50
+        self.rsi_entry_max = 70
+
     def telegram(self, message):
         config = telegram_config()
         asyncio.run(send_telegram_message(config['token'], config['chat_id'], message))
@@ -49,29 +57,30 @@ class CryptoTradingBot:
         df = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'])
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
         df['close'] = df['close'].astype(float)
+        message = f"---Get data for symbol---: {symbol}"
+        logging.info(message)
+        print(message)
         return df
 
     def calculate_indicators(self, df):
-        rsi = RSIIndicator(df['close'], window=14)
-        bb = BollingerBands(df['close'], window=20, window_dev=2)
-        sma50 = SMAIndicator(df['close'], window=50)
-        sma200 = SMAIndicator(df['close'], window=200)
-
-        df['rsi'] = rsi.rsi()
-        df['bb_lower'] = bb.bollinger_lband()
-        df['sma50'] = sma50.sma_indicator()
-        df['sma200'] = sma200.sma_indicator()
+        macd = ta.trend.MACD(df['close'], window_slow=self.slow_length, window_fast=self.fast_length, window_sign=self.signal_smoothing)
+        df['macd'] = macd.macd()
+        df['signal'] = macd.macd_signal()
+        df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=self.rsi_length).rsi()
+        message = f"Indicators: madc: {df['macd'].iloc[-1]}, signal: {df['signal'].iloc[-1]}, rsi: {df['rsi'].iloc[-1]}"
+        logging.info(message)
+        print(message)
         return df
 
     def generate_buy_signal(self, df):
-        last_row = df.iloc[-1]
-        prev_row = df.iloc[-2]
-
-        rsi_condition = last_row['rsi'] < 30
-        bb_condition = prev_row['close'] <= prev_row['bb_lower'] and last_row['close'] > last_row['bb_lower']
-        sma_condition = prev_row['sma50'] <= prev_row['sma200'] and last_row['sma50'] > last_row['sma200']
-
-        return rsi_condition and (bb_condition or sma_condition)
+        df['buy_signal'] = ((df['macd'] > df['signal']) & 
+                        (df['macd'].shift() <= df['signal'].shift()) &
+                        (df['rsi'] > self.rsi_entry_min) & 
+                        (df['rsi'] < self.rsi_entry_max))
+        message = f"Buy signal generated: {df['buy_signal'].iloc[-1]}"
+        logging.info(message)
+        print(message)
+        return df
 
     def place_buy_order(self, symbol, quantity):
         try:
@@ -125,48 +134,62 @@ class CryptoTradingBot:
     def adjust_amount(self, amount, step_size):
         return round(amount - (amount % step_size), 8)
     
+    def get_lot_size(self, symbol):
+        info = self.client.get_symbol_info(symbol)
+        for filt in info['filters']:
+            if filt['filterType'] == 'LOT_SIZE':
+                return {
+                    'minQty': float(filt['minQty']),
+                    'maxQty': float(filt['maxQty']),
+                    'stepSize': float(filt['stepSize'])
+                }
+        return None
+
     def run(self):
         while True:
             for trading_pair, config in self.trading_pairs_config.items():
                 df = self.get_market_data(trading_pair)
                 df = self.calculate_indicators(df)
-
-                if self.generate_buy_signal(df):
+                df = self.generate_buy_signal(df)
+                if df['buy_signal'].iloc[-1]:
                     account = self.client.get_account()
                     usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
                     investment_amount = usdt_balance * config['diversification_percentage']
 
                     if investment_amount > 10:
-                        symbol_info = self.client.get_symbol_info(trading_pair)
-                        lot_size_filter = next(filter(lambda x: x['filterType'] == 'LOT_SIZE', symbol_info['filters']))
-                        amount = investment_amount / float(df['close'].iloc[-1])
-                        
-                        if amount < float(lot_size_filter['minQty']):
-                            raise Exception(f"Amount {amount} is less than the minimum allowed quantity {lot_size_filter['minQty']}")
-                        if amount > float(lot_size_filter['maxQty']):
-                            raise Exception(f"Amount {amount} is greater than the maximum allowed quantity {lot_size_filter['maxQty']}")
-                        
-                        step_size = float(lot_size_filter['stepSize'])
-                        quantity = self.adjust_amount(amount, step_size)
+                        lot_size = self.get_lot_size(trading_pair)
+                    if not lot_size:
+                        raise Exception("LOT_SIZE filter not found for the symbol")
+                    
+                     # Ensure the amount is within the allowed range
+                    if amount < lot_size['minQty']:
+                        raise Exception(f"Amount {amount} is less than the minimum allowed quantity {lot_size['minQty']}")
+                    if amount > lot_size['maxQty']:
+                        raise Exception(f"Amount {amount} is greater than the maximum allowed quantity {lot_size['maxQty']}")
 
-                        buy_order = self.place_buy_order(trading_pair, quantity)
-                        if buy_order:
-                            message = f"Buy order placed for: {trading_pair}, amount: {quantity}"
+
+                    amount = investment_amount / float(df['close'].iloc[-1])
+                    quantity = self.adjust_amount(amount, float(lot_size['stepSize']))
+                    
+                    buy_order = self.place_buy_order(trading_pair, quantity)
+
+                    if buy_order:
+                        message = f"Buy order placed for: {trading_pair}, amount: {quantity}"
+                        print(message)
+                        self.telegram(message)
+                        logging.info(message)
+                        entry_price = float(buy_order['fills'][0]['price'])
+                        quantity = float(buy_order['executedQty'])
+                        take_profit_price = entry_price * (1 + config['take_profit_percentage'])
+
+                        sell_order = self.place_sell_order(trading_pair, quantity, take_profit_price)
+
+                        if sell_order:            
+                            message = f"Sell order placed for {trading_pair}"
                             print(message)
-                            self.telegram(message)
                             logging.info(message)
-                            entry_price = float(buy_order['fills'][0]['price'])
-                            quantity = float(buy_order['executedQty'])
-                            take_profit_price = entry_price * (1 + config['take_profit_percentage'])
-
-                            sell_order = self.place_sell_order(trading_pair, quantity, take_profit_price)
-
-                            if sell_order:            
-                                message = f"Sell order placed for {trading_pair}"
-                                print(message)
-                                logging.info(message)
-                                self.telegram(message)
-                                self.store_position(trading_pair, entry_price, quantity, take_profit_price, buy_order['orderId'], sell_order['orderId'])
+                            self.telegram(message)
+                            self.store_position(trading_pair, entry_price, quantity, take_profit_price, buy_order['orderId'], sell_order['orderId'])
 
             self.check_completed_orders()
             self.heartbeat += 1
