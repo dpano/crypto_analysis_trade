@@ -68,9 +68,9 @@ class CryptoTradingBot:
         df['macd'] = macd.macd()
         df['signal'] = macd.macd_signal()
         df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=self.rsi_length).rsi()
-        message = f"Indicators: madc: {df['macd'].iloc[-1]}, signal: {df['signal'].iloc[-1]}, rsi: {df['rsi'].iloc[-1]}"
-        logging.info(message)
-        print(message)
+        # message = f"Indicators: madc: {df['macd'].iloc[-1]}, signal: {df['signal'].iloc[-1]}, rsi: {df['rsi'].iloc[-1]}"
+        # logging.info(message)
+        # print(message)
         return df
 
     def generate_buy_signal(self, df):
