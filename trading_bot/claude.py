@@ -221,7 +221,7 @@ class CryptoTradingBot:
 
                 if order['status'] == Client.ORDER_STATUS_FILLED:
                     actual_profit = (float(order['price']) - entry_price) * quantity
-                    actual_profit_percentage = (float(order['price']) - entry_price) / entry_price * 100
+                    actual_profit_percentage = ((float(order['price']) - entry_price) / entry_price) * 100
                     self.update_position(position_id, actual_profit, actual_profit_percentage)
                     
                     message = f"Position closed for {trading_pair}. Profit: {actual_profit} USDT ({actual_profit_percentage}%)"
