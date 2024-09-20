@@ -47,7 +47,9 @@ class CryptoTradingBot:
                 buy_order_id TEXT,
                 sell_order_id TEXT,
                 actual_profit REAL,
-                actual_profit_percentage REAL
+                actual_profit_percentage REAL,
+                created TEXT, 
+                updated TEXT             
             )
         ''')
         self.conn.commit()
@@ -119,19 +121,21 @@ class CryptoTradingBot:
 
     def store_position(self, trading_pair, entry_price, quantity, take_profit_price, buy_order_id, sell_order_id):
         cursor = self.conn.cursor()
-        cursor.execute('''
-            INSERT INTO positions (trading_pair, entry_price, quantity, take_profit_price, status, buy_order_id, sell_order_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+        current_time = "datetime('now', 'localtime')"
+        cursor.execute(f'''
+            INSERT INTO positions (trading_pair, entry_price, quantity, take_profit_price, status, buy_order_id, sell_order_id, created, updated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, {current_time}, {current_time})
         ''', (trading_pair, entry_price, quantity, take_profit_price, 'open', buy_order_id, sell_order_id))
         self.conn.commit()
 
     def update_position(self, position_id, actual_profit, actual_profit_percentage):
         cursor = self.conn.cursor()
+        current_time = "datetime('now', 'localtime')"
         cursor.execute('''
             UPDATE positions
-            SET status = ?, actual_profit = ?, actual_profit_percentage = ?
+            SET status = ?, actual_profit = ?, actual_profit_percentage = ?, updated = ?
             WHERE id = ?
-        ''', ('closed', actual_profit, actual_profit_percentage, position_id))
+        ''', ('closed', actual_profit, actual_profit_percentage, position_id, current_time))
         self.conn.commit()
     
     def adjust_amount(self, amount, step_size):
