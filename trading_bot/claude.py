@@ -108,7 +108,7 @@ class CryptoTradingBot:
                 type=Client.ORDER_TYPE_LIMIT,
                 timeInForce=Client.TIME_IN_FORCE_GTC,
                 quantity=quantity,
-                price=str(round(price, 2))
+                price=str(round(price, 4))
             )
             return order
         except BinanceAPIException as e:
@@ -135,7 +135,8 @@ class CryptoTradingBot:
         self.conn.commit()
     
     def adjust_amount(self, amount, step_size):
-        return round(amount - (amount % step_size), 8)
+        # Ensure the quantity is rounded down to the nearest stepSize
+        return round(amount - (amount % step_size), len(str(step_size).split('.')[1]))
     
     def get_lot_size(self, symbol):
         info = self.client.get_symbol_info(symbol)
