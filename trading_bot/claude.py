@@ -104,19 +104,28 @@ class CryptoTradingBot:
 
     def place_sell_order(self, symbol, quantity, price):
         try:
+            price_filter = self.get_price_filter(symbol)
+            if not price_filter:
+                raise Exception("PRICE_FILTER not found for the symbol")
+            
+            # Adjust the price to be within the allowed limits
+            price = max(price_filter['minPrice'], min(price, price_filter['maxPrice']))
+            price = round(price - (price % price_filter['tickSize']), 8)
+            
             order = self.client.create_order(
                 symbol=symbol,
                 side=Client.SIDE_SELL,
                 type=Client.ORDER_TYPE_LIMIT,
                 timeInForce=Client.TIME_IN_FORCE_GTC,
                 quantity=quantity,
-                price=str(round(price, 4))
+                price=str(price)
             )
             return order
         except BinanceAPIException as e:
             message = f"Error placing sell order: {e}"
             print(message)
             logging.error(message)
+            send_telegram_message(message)
             return None
 
     def store_position(self, trading_pair, entry_price, quantity, take_profit_price, buy_order_id, sell_order_id):
@@ -162,6 +171,18 @@ class CryptoTradingBot:
                     'stepSize': float(filt['stepSize'])
                 }
         return None
+
+    def get_price_filter(self, symbol):
+        info = self.client.get_symbol_info(symbol)
+        for filt in info['filters']:
+            if filt['filterType'] == 'PRICE_FILTER':
+                return {
+                    'minPrice': float(filt['minPrice']),
+                    'maxPrice': float(filt['maxPrice']),
+                    'tickSize': float(filt['tickSize'])
+                }
+        return None
+
 
     def run(self):
         while True:
