@@ -89,6 +89,24 @@ class CryptoTradingBot:
 
     def place_buy_order(self, symbol, quantity):
         try:
+            # Get the last market price
+            ticker = self.client.get_symbol_ticker(symbol=symbol)
+            last_price = float(ticker['price'])
+
+            # Check the NOTIONAL filter
+            notional_filter = self.get_notional_filter(symbol)
+            if not notional_filter:
+                raise Exception("MIN_NOTIONAL filter not found for the symbol")
+            
+            # Ensure the notional value is above the minimum
+            notional_value = last_price * quantity
+            if notional_value < notional_filter:
+                message = f"Order notional value {notional_value} is less than the minimum required {notional_filter}"
+                print(message)
+                logging.error(message)
+                return None
+
+            # Place the buy order if it meets the criteria
             order = self.client.create_order(
                 symbol=symbol,
                 side=Client.SIDE_BUY,
@@ -101,6 +119,7 @@ class CryptoTradingBot:
             print(message)
             logging.error(message)
             return None
+
 
     def place_sell_order(self, symbol, quantity, price):
         try:
@@ -183,6 +202,12 @@ class CryptoTradingBot:
                 }
         return None
 
+    def get_notional_filter(self, symbol):
+        info = self.client.get_symbol_info(symbol)
+        for filt in info['filters']:
+            if filt['filterType'] == 'MIN_NOTIONAL':
+                return float(filt['minNotional'])
+        return None
 
     def run(self):
         while True:
