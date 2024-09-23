@@ -139,8 +139,18 @@ class CryptoTradingBot:
         self.conn.commit()
     
     def adjust_amount(self, amount, step_size):
+        # Convert step_size to a string and check if it has a decimal part
+        step_size_str = str(step_size)
+        if '.' in step_size_str:
+            # If there's a decimal part, calculate the number of decimal places
+            decimal_places = len(step_size_str.split('.')[1])
+        else:
+            # If there's no decimal part, set decimal_places to 0
+            decimal_places = 0
+        
         # Ensure the quantity is rounded down to the nearest stepSize
-        return round(amount - (amount % step_size), len(str(step_size).split('.')[1]))
+        return round(amount - (amount % step_size), decimal_places)
+
     
     def get_lot_size(self, symbol):
         info = self.client.get_symbol_info(symbol)
