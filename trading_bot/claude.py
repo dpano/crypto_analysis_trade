@@ -89,22 +89,6 @@ class CryptoTradingBot:
 
     def place_buy_order(self, symbol, quantity):
         try:
-            # Get the last market price
-            ticker = self.client.get_symbol_ticker(symbol=symbol)
-            last_price = float(ticker['price'])
-
-            # Check the NOTIONAL filter
-            notional_filter = self.get_notional_filter(symbol)
-            if not notional_filter:
-                raise Exception("MIN_NOTIONAL filter not found for the symbol")
-            
-            # Ensure the notional value is above the minimum
-            notional_value = last_price * quantity
-            if notional_value < notional_filter:
-                message = f"Order notional value {notional_value} is less than the minimum required {notional_filter}"
-                print(message)
-                logging.error(message)
-                return None
 
             # Place the buy order if it meets the criteria
             order = self.client.create_order(
@@ -181,6 +165,7 @@ class CryptoTradingBot:
 
     
     def get_lot_size(self, symbol):
+        """ Refers to quantity """
         info = self.client.get_symbol_info(symbol)
         for filt in info['filters']:
             if filt['filterType'] == 'LOT_SIZE':
@@ -192,6 +177,7 @@ class CryptoTradingBot:
         return None
 
     def get_price_filter(self, symbol):
+        """ Refers to price """
         info = self.client.get_symbol_info(symbol)
         for filt in info['filters']:
             if filt['filterType'] == 'PRICE_FILTER':
@@ -203,6 +189,7 @@ class CryptoTradingBot:
         return None
 
     def get_notional_filter(self, symbol):
+        """Refers to quantity for limit_stop_loss"""
         info = self.client.get_symbol_info(symbol)
         for filt in info['filters']:
             if filt['filterType'] == 'MIN_NOTIONAL':
@@ -216,18 +203,36 @@ class CryptoTradingBot:
                 df = self.calculate_indicators(df)
                 df = self.generate_buy_signal(df)
                 if df['buy_signal'].iloc[-1]:
+                    # Specify the fixed amount of USDT to invest for each trading pair
+                    fixed_investment_amount = config.get('fixed_investment_amount', None)
+
+                    if not fixed_investment_amount:
+                        message = f"Fixed investment amount not set for {trading_pair}. Skipping..."
+                        logging.info(message)
+                        print(message)
+                        continue
+
+                    # Get the current balance in USDT
                     account = self.client.get_account()
                     usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
-                    investment_amount = usdt_balance * config['diversification_percentage']
 
-                    amount = investment_amount / float(df['close'].iloc[-1])
+                    # Ensure that the USDT balance is enough for the fixed investment
+                    if fixed_investment_amount > usdt_balance:
+                        message = f"Not enough USDT balance to place the trade for {trading_pair}. Required: {fixed_investment_amount}, Available: {usdt_balance}"
+                        logging.info(message)
+                        print(message)
+                        continue
+
+                    # Calculate the amount of crypto to buy using the fixed USDT amount
+                    amount = fixed_investment_amount / float(df['close'].iloc[-1])
                     
+                    # Retrieve the lot size (minimum and maximum order size) for the trading pair
                     lot_size = self.get_lot_size(trading_pair)
                     
                     if not lot_size:
                         raise Exception("LOT_SIZE filter not found for the symbol")
                     
-                     # Ensure the amount is within the allowed range
+                    # Ensure the amount is within the allowed range
                     if amount < lot_size['minQty']:
                         message = f"Amount {amount} is less than the minimum allowed quantity {lot_size['minQty']}"
                         logging.info(message)
@@ -240,8 +245,10 @@ class CryptoTradingBot:
                         print(message)
                         continue
                     
+                    # Adjust the amount to be within the allowed step size
                     quantity = self.adjust_amount(amount, float(lot_size['stepSize']))
                     
+                    # Place the buy order
                     buy_order = self.place_buy_order(trading_pair, quantity)
 
                     if buy_order:
@@ -253,6 +260,7 @@ class CryptoTradingBot:
                         quantity = float(buy_order['executedQty'])
                         take_profit_price = entry_price * (1 + config['take_profit_percentage'])
 
+                        # Place the sell order
                         sell_order = self.place_sell_order(trading_pair, quantity, take_profit_price)
 
                         if sell_order:            
@@ -269,6 +277,7 @@ class CryptoTradingBot:
                 logging.info('Heartbeat - Claude is alive')
                 
             time.sleep(60)  # Wait for 1 minute before next iteration
+
 
     def check_completed_orders(self):
         cursor = self.conn.cursor()
