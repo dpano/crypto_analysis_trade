@@ -37,4 +37,9 @@ if __name__ == "__main__":
     }
 
     bot = CryptoTradingBot(trading_pairs_config)
-    bot.run()
+    try:
+    
+        bot.run()
+    except Exception as e: 
+        telegram("CLAUDE has STOPPED with error! " + e)
+        raise

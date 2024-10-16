@@ -209,7 +209,7 @@ class CryptoTradingBot:
                 df = self.get_market_data(trading_pair)
                 df = self.calculate_indicators(df)
                 df = self.generate_buy_signal(df)
-                if True or df['buy_signal'].iloc[-1]:
+                if df['buy_signal'].iloc[-1]:
                     # Specify the fixed amount of USDT to invest for each trading pair
                     fixed_investment_amount = config.get('fixed_investment_amount', None)
 
@@ -282,7 +282,6 @@ class CryptoTradingBot:
             if self.heartbeat % 1440 == 0:
                 self.telegram('Heartbeat - Claude is alive')
                 logging.info('Heartbeat - Claude is alive')
-            break 
             time.sleep(60)  # Wait for 1 minute before next iteration
 
 
