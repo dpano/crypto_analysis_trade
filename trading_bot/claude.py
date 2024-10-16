@@ -95,7 +95,7 @@ class CryptoTradingBot:
                 symbol=symbol,
                 side=Client.SIDE_BUY,
                 type=Client.ORDER_TYPE_MARKET,
-                quantity=quantity
+                quoteOrderQty=quantity
             )
             return order
         except BinanceAPIException as e:
@@ -159,9 +159,16 @@ class CryptoTradingBot:
         else:
             # If there's no decimal part, set decimal_places to 0
             decimal_places = 0
-        
+
         # Ensure the quantity is rounded down to the nearest stepSize
-        return round(amount - (amount % step_size), decimal_places)
+        adjusted_amount = round(amount - (amount % step_size), decimal_places)
+
+        # Check if adjusted amount is 0 or less, which would be invalid
+        if adjusted_amount <= 0:
+            raise ValueError(f"Adjusted amount is zero or negative after rounding: {adjusted_amount}. Check the input values.")
+        
+        return adjusted_amount
+
 
     
     def get_lot_size(self, symbol):
@@ -202,7 +209,7 @@ class CryptoTradingBot:
                 df = self.get_market_data(trading_pair)
                 df = self.calculate_indicators(df)
                 df = self.generate_buy_signal(df)
-                if df['buy_signal'].iloc[-1]:
+                if True or df['buy_signal'].iloc[-1]:
                     # Specify the fixed amount of USDT to invest for each trading pair
                     fixed_investment_amount = config.get('fixed_investment_amount', None)
 
@@ -246,7 +253,7 @@ class CryptoTradingBot:
                         continue
                     
                     # Adjust the amount to be within the allowed step size
-                    quantity = self.adjust_amount(amount, float(lot_size['stepSize']))
+                    quantity = fixed_investment_amount #self.adjust_amount(amount, float(lot_size['stepSize']))
                     
                     # Place the buy order
                     buy_order = self.place_buy_order(trading_pair, quantity)
@@ -275,7 +282,7 @@ class CryptoTradingBot:
             if self.heartbeat % 1440 == 0:
                 self.telegram('Heartbeat - Claude is alive')
                 logging.info('Heartbeat - Claude is alive')
-                
+            break 
             time.sleep(60)  # Wait for 1 minute before next iteration
 
 
