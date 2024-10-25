@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import time
 import pandas as pd
@@ -6,9 +7,6 @@ import sqlite3
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 import ta
-from ta.momentum import RSIIndicator
-from ta.volatility import BollingerBands
-from ta.trend import SMAIndicator
 from configuration.binance_config import config as binance_config
 from configuration.telegram_config import config as telegram_config
 from notifications.telegram import send_telegram_message
@@ -133,7 +131,7 @@ class CryptoTradingBot:
 
     def store_position(self, trading_pair, entry_price, quantity, take_profit_price, buy_order_id, sell_order_id):
         cursor = self.conn.cursor()
-        current_time = "datetime('now', 'localtime')"
+        current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor.execute(f'''
             INSERT INTO positions (trading_pair, entry_price, quantity, take_profit_price, status, buy_order_id, sell_order_id, created, updated)
             VALUES (?, ?, ?, ?, ?, ?, ?, {current_time}, {current_time})
@@ -142,7 +140,7 @@ class CryptoTradingBot:
 
     def update_position(self, position_id, actual_profit, actual_profit_percentage):
         cursor = self.conn.cursor()
-        current_time = "datetime('now', 'localtime')"
+        current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor.execute('''
             UPDATE positions
             SET status = ?, actual_profit = ?, actual_profit_percentage = ?, updated = ?
