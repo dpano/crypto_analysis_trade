@@ -147,7 +147,7 @@ class CryptoTradingBot:
             UPDATE positions
             SET status = ?, actual_profit = ?, actual_profit_percentage = ?, updated = ?
             WHERE id = ?
-        ''', ('closed', actual_profit, actual_profit_percentage, position_id, current_time))
+        ''', ('closed', actual_profit, actual_profit_percentage, current_time, position_id))
         self.conn.commit()
     
     def adjust_amount(self, amount, step_size):
