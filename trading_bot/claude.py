@@ -1,5 +1,5 @@
 import asyncio
-import datetime
+from datetime import datetime
 import logging
 import time
 import pandas as pd
@@ -130,23 +130,35 @@ class CryptoTradingBot:
             return None
 
     def store_position(self, trading_pair, entry_price, quantity, take_profit_price, buy_order_id, sell_order_id):
-        cursor = self.conn.cursor()
-        current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor.execute(f'''
-            INSERT INTO positions (trading_pair, entry_price, quantity, take_profit_price, status, buy_order_id, sell_order_id, created, updated)
-            VALUES (?, ?, ?, ?, ?, ?, ?, {current_time}, {current_time})
-        ''', (trading_pair, entry_price, quantity, take_profit_price, 'open', buy_order_id, sell_order_id))
-        self.conn.commit()
+        try:
+            cursor = self.conn.cursor()
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute('''
+                INSERT INTO positions (trading_pair, entry_price, quantity, take_profit_price, status, buy_order_id, sell_order_id, created, updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (trading_pair, entry_price, quantity, take_profit_price, 'open', buy_order_id, sell_order_id, current_time, current_time))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            error_message = f"Database error in store_position: {str(e)}"
+            logging.error(error_message)
+            self.telegram(error_message)
+            raise
 
     def update_position(self, position_id, actual_profit, actual_profit_percentage):
-        cursor = self.conn.cursor()
-        current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor.execute('''
-            UPDATE positions
-            SET status = ?, actual_profit = ?, actual_profit_percentage = ?, updated = ?
-            WHERE id = ?
-        ''', ('closed', actual_profit, actual_profit_percentage, current_time, position_id))
-        self.conn.commit()
+        try:
+            cursor = self.conn.cursor()
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute('''
+                UPDATE positions
+                SET status = ?, actual_profit = ?, actual_profit_percentage = ?, updated = ?
+                WHERE id = ?
+            ''', ('closed', actual_profit, actual_profit_percentage, current_time, position_id))
+            self.conn.commit()
+        except sqlite3.Error as e:
+            error_message = f"Database error in update_position: {str(e)}"
+            logging.error(error_message)
+            self.telegram(error_message)
+            raise
     
     def adjust_amount(self, amount, step_size):
         # Convert step_size to a string and check if it has a decimal part
