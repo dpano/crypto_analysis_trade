@@ -29,9 +29,13 @@ class CryptoTradingBot:
         self.rsi_entry_max = 70
 
     def telegram(self, message):
-        config = telegram_config()
-        asyncio.run(send_telegram_message(config['token'], config['chat_id'], message))
-        logging.info(f"Telegram message sent: {message}")
+        try:
+            config = telegram_config()
+            asyncio.run(send_telegram_message(config['token'], config['chat_id'], message))
+            logging.info(f"Telegram message sent: {message}")
+        except Exception as e: 
+            logging.error(f"Telegram error: {str(e)}")
+
     def create_positions_table(self):
         cursor = self.conn.cursor()
         cursor.execute('''

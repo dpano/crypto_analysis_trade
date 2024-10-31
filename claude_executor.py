@@ -41,5 +41,5 @@ if __name__ == "__main__":
     
         bot.run()
     except Exception as e: 
-        telegram("CLAUDE has STOPPED with error! " + e)
+        telegram("CLAUDE has STOPPED with error! " + str(e))
         raise
