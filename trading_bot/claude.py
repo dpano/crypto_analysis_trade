@@ -275,7 +275,7 @@ class CryptoTradingBot:
                     if buy_order:
                         message = f"Buy order placed for: {trading_pair}, amount: {quantity}"
                         print(message)
-                        self.telegram(message)
+                        # self.telegram(message)
                         logging.info(message)
                         entry_price = float(buy_order['fills'][0]['price'])
                         quantity = float(buy_order['executedQty'])
@@ -288,7 +288,7 @@ class CryptoTradingBot:
                             message = f"Sell order placed for {trading_pair}"
                             print(message)
                             logging.info(message)
-                            self.telegram(message)
+                            # self.telegram(message)
                             self.store_position(trading_pair, entry_price, quantity, take_profit_price, buy_order['orderId'], sell_order['orderId'])
 
             self.check_completed_orders()
@@ -312,6 +312,7 @@ class CryptoTradingBot:
                 if order['status'] == Client.ORDER_STATUS_FILLED:
                     actual_profit = (float(order['price']) - entry_price) * quantity
                     actual_profit_percentage = ((float(order['price']) - entry_price) / entry_price) * 100
+                    actual_profit_percentage = round(actual_profit_percentage, 2)
                     self.update_position(position_id, actual_profit, actual_profit_percentage)
                     
                     message = f"Position closed for {trading_pair}. Profit: {actual_profit} USDT ({actual_profit_percentage}%)"
