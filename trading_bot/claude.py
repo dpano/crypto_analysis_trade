@@ -296,7 +296,7 @@ class CryptoTradingBot:
             if self.heartbeat % 1440 == 0:
                 self.telegram('Heartbeat - Claude is alive')
                 logging.info('Heartbeat - Claude is alive')
-            time.sleep(60)  # Wait for 1 minute before next iteration
+            time.sleep(3600)  # Wait for 1 hour before next iteration
 
 
     def check_completed_orders(self):
