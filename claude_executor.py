@@ -20,28 +20,34 @@ if __name__ == "__main__":
     trading_pairs_config = {
         'BTCUSDT': {
             'take_profit_percentage': 0.03,  # 3% take profit for BTC
-            'fixed_investment_amount': 20
+            'fixed_investment_amount': 20,
+            'percentage_investment_amount':10
         },
         'SOLUSDT': {
             'take_profit_percentage': 0.03,  # 4% take profit for ETH
-            'fixed_investment_amount': 20  # 3% of available balance for ETH
+            'fixed_investment_amount': 20,  # 3% of available balance for ETH
+            'percentage_investment_amount':0.1
         },
         'TRXUSDT': {
             'take_profit_percentage': 0.03,  # 5% take profit for ADA
-            'fixed_investment_amount': 20  # 2% of available balance for ADA
+            'fixed_investment_amount': 20,
+            'percentage_investment_amount':0.1
         },
         'ETHUSDT': {
             'take_profit_percentage': 0.03,  # 5% take profit for ADA
-            'fixed_investment_amount': 20  # 2% of available balance for ADA
+            'fixed_investment_amount': 20,
+            'percentage_investment_amount':0.1
         },
         'XRPUSDT': {
             'take_profit_percentage': 0.03,  # 5% take profit for ADA
-            'fixed_investment_amount': 20  # 2% of available balance for ADA
+            'fixed_investment_amount': 20,
+            'percentage_investment_amount':0.1
         }
         ,
         'ADAUSDT': {
             'take_profit_percentage': 0.03,  # 5% take profit for ADA
-            'fixed_investment_amount': 20  # 2% of available balance for ADA
+            'fixed_investment_amount': 20,
+            'percentage_investment_amount':0.1
         }
     }
 

@@ -10,6 +10,7 @@ import ta
 from configuration.binance_config import config as binance_config
 from configuration.telegram_config import config as telegram_config
 from notifications.telegram import send_telegram_message
+import math
 # Configure logging
 logging.basicConfig(filename='trading_bot.log', level=logging.INFO, 
                     format='%(asctime)s %(message)s')
@@ -224,50 +225,31 @@ class CryptoTradingBot:
                 df = self.calculate_indicators(df)
                 df = self.generate_buy_signal(df)
                 if df['buy_signal'].iloc[-1]:
-                    # Specify the fixed amount of USDT to invest for each trading pair
-                    fixed_investment_amount = config.get('fixed_investment_amount', None)
+                     
+                    # Get the current balance in USDT
+                    account = self.client.get_account()
+                    usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
 
-                    if not fixed_investment_amount:
+                    # Specify the fixed amount of USDT to invest for each trading pair
+                    investment_amount = math.ceil(config.get('percentage_investment_amount', None) * usdt_balance)
+
+                    if not investment_amount:
                         message = f"Fixed investment amount not set for {trading_pair}. Skipping..."
                         logging.info(message)
                         print(message)
                         continue
 
-                    # Get the current balance in USDT
-                    account = self.client.get_account()
-                    usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
+                   
 
                     # Ensure that the USDT balance is enough for the fixed investment
-                    if fixed_investment_amount > usdt_balance:
-                        message = f"Not enough USDT balance to place the trade for {trading_pair}. Required: {fixed_investment_amount}, Available: {usdt_balance}"
-                        logging.info(message)
-                        print(message)
-                        continue
-
-                    # Calculate the amount of crypto to buy using the fixed USDT amount
-                    amount = fixed_investment_amount / float(df['close'].iloc[-1])
-                    
-                    # Retrieve the lot size (minimum and maximum order size) for the trading pair
-                    lot_size = self.get_lot_size(trading_pair)
-                    
-                    if not lot_size:
-                        raise Exception("LOT_SIZE filter not found for the symbol")
-                    
-                    # Ensure the amount is within the allowed range
-                    if amount < lot_size['minQty']:
-                        message = f"Amount {amount} is less than the minimum allowed quantity {lot_size['minQty']}"
-                        logging.info(message)
-                        print(message)
-                        continue
-                        
-                    if amount > lot_size['maxQty']:
-                        message = f"Amount {amount} is greater than the maximum allowed quantity {lot_size['maxQty']}"
+                    if investment_amount > usdt_balance:
+                        message = f"Not enough USDT balance to place the trade for {trading_pair}. Required: {investment_amount}, Available: {usdt_balance}"
                         logging.info(message)
                         print(message)
                         continue
                     
                     # Adjust the amount to be within the allowed step size
-                    quantity = fixed_investment_amount #self.adjust_amount(amount, float(lot_size['stepSize']))
+                    quantity = investment_amount #self.adjust_amount(amount, float(lot_size['stepSize']))
                     
                     # Place the buy order
                     buy_order = self.place_buy_order(trading_pair, quantity)
@@ -275,7 +257,7 @@ class CryptoTradingBot:
                     if buy_order:
                         message = f"Buy order placed for: {trading_pair}, amount: {quantity}"
                         print(message)
-                        # self.telegram(message)
+                        self.telegram(message)
                         logging.info(message)
                         entry_price = float(buy_order['fills'][0]['price'])
                         quantity = float(buy_order['executedQty'])
@@ -288,12 +270,12 @@ class CryptoTradingBot:
                             message = f"Sell order placed for {trading_pair}"
                             print(message)
                             logging.info(message)
-                            # self.telegram(message)
+                            self.telegram(message)
                             self.store_position(trading_pair, entry_price, quantity, take_profit_price, buy_order['orderId'], sell_order['orderId'])
 
             self.check_completed_orders()
             self.heartbeat += 1
-            if self.heartbeat % 1440 == 0:
+            if self.heartbeat % 24 == 0:
                 self.telegram('Heartbeat - Claude is alive')
                 logging.info('Heartbeat - Claude is alive')
             time.sleep(3600)  # Wait for 1 hour before next iteration
