@@ -6,6 +6,7 @@ from configuration.binance_config import config as binance_config
 import numpy as np
 import os
 import csv
+import math
 
 binance_config = binance_config()
 api_key = binance_config['api_key']
@@ -13,7 +14,7 @@ api_secret = binance_config['api_secret']
 client = Client(api_key, api_secret)
 
 symbols = ['TRXUSDT', 'BTCUSDT','ETHUSDT']  # Example symbol
-timeframe = Client.KLINE_INTERVAL_4HOUR  
+timeframe = Client.KLINE_INTERVAL_1HOUR  
 fast_length = 12
 slow_length = 26
 signal_smoothing = 9
@@ -64,7 +65,7 @@ def backtest_strategy(df, initial_balance, investment_percentage, stop_loss_perc
     for index, row in df.iterrows():
         price = row['close']
         if row['buy_signal'] and balance > 0:
-            investment_amount = balance * investment_percentage
+            investment_amount = math.ceil(balance * investment_percentage)
             balance -= investment_amount
             balance -= investment_amount * commission_percentage  # Commission fee for buying
             positions.append({
@@ -194,7 +195,7 @@ def plot_graphs(df, trades):
 
 # Main function to run the backtest
 def main(symbol):
-    df = fetch_historical_data(symbol, timeframe, '2024-07-01')
+    df = fetch_historical_data(symbol, timeframe, '2024-06-01')
     df = calculate_indicators(df)
     df = generate_signals(df)
     df, trades, equity_curve , positions = backtest_strategy(df, initial_balance, investment_percentage, stop_loss_percentage, commission_percentage, symbol)

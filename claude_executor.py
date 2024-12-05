@@ -38,27 +38,27 @@ if __name__ == "__main__":
             'percentage_investment_amount': percentage_investment_amount
         },
         'SOLUSDT': {
-            'take_profit_percentage': 0.03,  # 4% take profit for ETH
-            'fixed_investment_amount': 20,  # 3% of available balance for ETH
+            'take_profit_percentage': 0.05, 
+            'fixed_investment_amount': 20,  
             'percentage_investment_amount': percentage_investment_amount
         },
         'TRXUSDT': {
-            'take_profit_percentage': 0.03,  # 5% take profit for ADA
+            'take_profit_percentage': 0.05, 
             'fixed_investment_amount': 20,
             'percentage_investment_amount': percentage_investment_amount
         },
         'ETHUSDT': {
-            'take_profit_percentage': 0.03,  # 5% take profit for ADA
+            'take_profit_percentage': 0.02, 
             'fixed_investment_amount': 20,
             'percentage_investment_amount': percentage_investment_amount
         },
         'XRPUSDT': {
-            'take_profit_percentage': 0.03,  # 5% take profit for ADA
+            'take_profit_percentage': 0.03,  
             'fixed_investment_amount': 20,
             'percentage_investment_amount': percentage_investment_amount
         },
         'ADAUSDT': {
-            'take_profit_percentage': 0.03,  # 5% take profit for ADA
+            'take_profit_percentage': 0.03,
             'fixed_investment_amount': 20,
             'percentage_investment_amount': percentage_investment_amount
         }
