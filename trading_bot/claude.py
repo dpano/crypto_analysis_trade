@@ -242,7 +242,7 @@ class CryptoTradingBot:
                    
 
                     # Ensure that the USDT balance is enough for the fixed investment
-                    if investment_amount > usdt_balance:
+                    if investment_amount > usdt_balance and investment_amount < 10:
                         message = f"Not enough USDT balance to place the trade for {trading_pair}. Required: {investment_amount}, Available: {usdt_balance}"
                         logging.info(message)
                         print(message)
