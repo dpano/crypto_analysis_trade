@@ -66,6 +66,9 @@ class CryptoTradingBot:
         # message = f"---Get data for symbol---: {symbol}"
         # logging.info(message)
         # print(message)
+        message = f"---Get data for symbol---: {symbol}"
+        logging.info(message)
+        print(message)
         return df
 
     def calculate_indicators(self, df):
@@ -73,9 +76,10 @@ class CryptoTradingBot:
         df['macd'] = macd.macd()
         df['signal'] = macd.macd_signal()
         df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=self.rsi_length).rsi()
-        # message = f"Indicators: madc: {df['macd'].iloc[-1]}, signal: {df['signal'].iloc[-1]}, rsi: {df['rsi'].iloc[-1]}"
-        # logging.info(message)
-        # print(message)
+        message = f"Indicators: madc: {df['macd'].iloc[-1]}, signal: {df['signal'].iloc[-1]}, rsi: {df['rsi'].iloc[-1]}"
+        logging.info(message)
+        print(message)
+
         return df
 
     def generate_buy_signal(self, df):
@@ -187,7 +191,6 @@ class CryptoTradingBot:
 
     
     def get_lot_size(self, symbol):
-        """ Refers to quantity """
         info = self.client.get_symbol_info(symbol)
         for filt in info['filters']:
             if filt['filterType'] == 'LOT_SIZE':
@@ -225,8 +228,6 @@ class CryptoTradingBot:
                 df = self.calculate_indicators(df)
                 df = self.generate_buy_signal(df)
                 if df['buy_signal'].iloc[-1]:
-                     
-                    # Get the current balance in USDT
                     account = self.client.get_account()
                     usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
 
@@ -262,8 +263,6 @@ class CryptoTradingBot:
                         entry_price = float(buy_order['fills'][0]['price'])
                         quantity = float(buy_order['executedQty'])
                         take_profit_price = entry_price * (1 + config['take_profit_percentage'])
-
-                        # Place the sell order
                         sell_order = self.place_sell_order(trading_pair, quantity, take_profit_price)
 
                         if sell_order:            
