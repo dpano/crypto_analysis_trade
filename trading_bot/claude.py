@@ -232,7 +232,7 @@ class CryptoTradingBot:
                     usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
 
                     # Specify the fixed amount of USDT to invest for each trading pair
-                    investment_amount = math.ceil(config.get('percentage_investment_amount', None) * usdt_balance)
+                    investment_amount = max(10,math.floor(config.get('percentage_investment_amount', None) * usdt_balance))
 
                     if not investment_amount:
                         message = f"Fixed investment amount not set for {trading_pair}. Skipping..."
@@ -243,7 +243,7 @@ class CryptoTradingBot:
                    
 
                     # Ensure that the USDT balance is enough for the fixed investment
-                    if investment_amount > usdt_balance and investment_amount < 10:
+                    if investment_amount > usdt_balance :
                         message = f"Not enough USDT balance to place the trade for {trading_pair}. Required: {investment_amount}, Available: {usdt_balance}"
                         logging.info(message)
                         print(message)
@@ -261,9 +261,11 @@ class CryptoTradingBot:
                         self.telegram(message)
                         logging.info(message)
                         entry_price = float(buy_order['fills'][0]['price'])
+                        
                         quantity = float(buy_order['executedQty'])
                         take_profit_price = entry_price * (1 + config['take_profit_percentage'])
                         sell_order = self.place_sell_order(trading_pair, quantity, take_profit_price)
+                        logging.info(f"Entry Price: {entry_price}, Quantity: {quantity}, Take Profit: {take_profit_price}")
 
                         if sell_order:            
                             message = f"Sell order placed for {trading_pair}"
