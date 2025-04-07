@@ -229,10 +229,10 @@ class CryptoTradingBot:
                 df = self.generate_buy_signal(df)
                 if df['buy_signal'].iloc[-1]:
                     account = self.client.get_account()
-                    usdt_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDT'))
+                    usdc_balance = float(next(asset['free'] for asset in account['balances'] if asset['asset'] == 'USDC'))
 
-                    # Specify the fixed amount of USDT to invest for each trading pair
-                    investment_amount = max(10,math.floor(config.get('percentage_investment_amount', None) * usdt_balance))
+                    # Specify the fixed amount of USDC to invest for each trading pair
+                    investment_amount = max(10,math.floor(config.get('percentage_investment_amount', None) * usdc_balance))
 
                     if not investment_amount:
                         message = f"Fixed investment amount not set for {trading_pair}. Skipping..."
@@ -242,9 +242,9 @@ class CryptoTradingBot:
 
                    
 
-                    # Ensure that the USDT balance is enough for the fixed investment
-                    if investment_amount > usdt_balance :
-                        message = f"Not enough USDT balance to place the trade for {trading_pair}. Required: {investment_amount}, Available: {usdt_balance}"
+                    # Ensure that the USDC balance is enough for the fixed investment
+                    if investment_amount > usdc_balance :
+                        message = f"Not enough USDC balance to place the trade for {trading_pair}. Required: {investment_amount}, Available: {usdc_balance}"
                         logging.info(message)
                         print(message)
                         continue
@@ -298,7 +298,7 @@ class CryptoTradingBot:
                     actual_profit_percentage = round(actual_profit_percentage, 2)
                     self.update_position(position_id, actual_profit, actual_profit_percentage)
                     
-                    message = f"Position closed for {trading_pair}. Profit: {actual_profit} USDT ({actual_profit_percentage}%)"
+                    message = f"Position closed for {trading_pair}. Profit: {actual_profit} USDC ({actual_profit_percentage}%)"
                     print(message)
                     self.telegram(message)
                     logging.info(message)

@@ -32,32 +32,32 @@ if __name__ == "__main__":
 
     # Define trading pairs with their individual take-profit and diversification percentages
     trading_pairs_config = {
-        'BTCUSDT': {
+        'BTCUSDC': {
             'take_profit_percentage': 0.03,  # 3% take profit for BTC
             'fixed_investment_amount': 20,
             'percentage_investment_amount': percentage_investment_amount
         },
-        'SOLUSDT': {
+        'SOLUSDC': {
             'take_profit_percentage': 0.05, 
             'fixed_investment_amount': 20,  
             'percentage_investment_amount': percentage_investment_amount
         },
-        'TRXUSDT': {
+        'TRXUSDC': {
             'take_profit_percentage': 0.05, 
             'fixed_investment_amount': 20,
             'percentage_investment_amount': percentage_investment_amount
         },
-        'ETHUSDT': {
+        'ETHUSDC': {
             'take_profit_percentage': 0.02, 
             'fixed_investment_amount': 20,
             'percentage_investment_amount': percentage_investment_amount
         },
-        'XRPUSDT': {
+        'XRPUSDC': {
             'take_profit_percentage': 0.03,  
             'fixed_investment_amount': 20,
             'percentage_investment_amount': percentage_investment_amount
         },
-        'ADAUSDT': {
+        'ADAUSDC': {
             'take_profit_percentage': 0.03,
             'fixed_investment_amount': 20,
             'percentage_investment_amount': percentage_investment_amount
