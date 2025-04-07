@@ -85,8 +85,12 @@ class CryptoTradingBot:
     def generate_buy_signal(self, df):
         df['buy_signal'] = ((df['macd'] > df['signal']) & 
                         (df['macd'].shift() <= df['signal'].shift()) &
-                        (df['rsi'] > self.rsi_entry_min) & 
-                        (df['rsi'] < self.rsi_entry_max))
+                        (df['macd'] > 0) &  # Ensure MACD is above zero (stronger bullish trend)
+                        (df['rsi'].shift(1) < self.rsi_entry_min) & (df['rsi'] > self.rsi_entry_min) &  # RSI crossing above 50 
+                        (df['rsi'] < self.rsi_entry_max) &
+                        (df['close'] > df['close'].ewm(span=200).mean()) & # Uptrend confirmation
+                        (df['volume'] > df['volume'].rolling(20).mean()) # Volume > 20-day average
+                        )
         has_signal = df['buy_signal'].iloc[-1]
         if has_signal:
             message = f"Buy signal generated({df['symbol'].iloc[-1]}): {has_signal}"
