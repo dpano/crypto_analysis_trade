@@ -84,24 +84,40 @@ class CryptoTradingBot:
         return df
 
     def generate_buy_signal(self, df):
-        df['buy_signal'] = ((df['macd'] > df['signal']) & 
-                        (df['macd'].shift() <= df['signal'].shift()) &
-                        (df['macd'] > 0) &  # Ensure MACD is above zero (stronger bullish trend)
-                        (df['rsi'].shift(1) < self.rsi_entry_min) & (df['rsi'] > self.rsi_entry_min) &  # RSI crossing above 50 
-                        (df['rsi'] < self.rsi_entry_max) &
-                        (df['close'] > df['close'].ewm(span=200).mean()) #& # Uptrend confirmation
-                        #(df['volume'] > df['volume'].rolling(20).mean()) # Volume > 20-day average
-                        )
-        print(f"macd > signal: {(df['macd'] > df['signal'])}")
-        print(f"macd > 0: {df['macd'] > 0}")
-        print(f"RSI > 50 and < 70: {(df['rsi'].shift(1) < self.rsi_entry_min) and (df['rsi'] > self.rsi_entry_min) and (df['rsi'] < self.rsi_entry_max)}")
-        print(f"EMA Confirmation: {(df['close'] > df['close'].ewm(span=200).mean())}")
-
+        # Store each condition separately
+        conditions = {
+            'macd_cross': (df['macd'] > df['signal']) & (df['macd'].shift() <= df['signal'].shift()),
+            'macd_above_zero': (df['macd'] > 0),
+            'rsi_cross': (df['rsi'].shift(1) < self.rsi_entry_min) & (df['rsi'] > self.rsi_entry_min),
+            'rsi_below_max': (df['rsi'] < self.rsi_entry_max),
+            'price_above_ema200': (df['close'] > df['close'].ewm(span=200).mean())
+            #'volume_above_avg': (df['volume'] > df['volume'].rolling(20).mean())
+        }
+        
+        # Combine all conditions
+        df['buy_signal'] = pd.Series(True, index=df.index)
+        for cond_name, cond in conditions.items():
+            df['buy_signal'] = df['buy_signal'] & cond
+        
+        # Check if current bar has signal
         has_signal = df['buy_signal'].iloc[-1]
+        
         if has_signal:
             message = f"Buy signal generated({df['symbol'].iloc[-1]}): {has_signal}"
             logging.info(message)
             print(message)
+        else:
+            # Print which conditions failed
+            failed_conditions = []
+            for cond_name, cond in conditions.items():
+                if not cond.iloc[-1]:
+                    failed_conditions.append(cond_name)
+            
+            if failed_conditions:
+                message = f"No buy signal({df['symbol'].iloc[-1]}). Failed conditions: {', '.join(failed_conditions)}"
+                logging.info(message)
+                print(message)
+        
         return df
 
     def place_buy_order(self, symbol, quantity):
