@@ -92,6 +92,11 @@ class CryptoTradingBot:
                         (df['close'] > df['close'].ewm(span=200).mean()) #& # Uptrend confirmation
                         #(df['volume'] > df['volume'].rolling(20).mean()) # Volume > 20-day average
                         )
+        print(f"macd > signal: {(df['macd'] > df['signal'])}")
+        print(f"macd > 0: {df['macd'] > 0}")
+        print(f"RSI > 50 and < 70: {(df['rsi'].shift(1) < self.rsi_entry_min) & (df['rsi'] > self.rsi_entry_min) & (df['rsi'] < self.rsi_entry_max)}")
+        print(f"EMA Confirmation: {(df['close'] > df['close'].ewm(span=200).mean())}")
+
         has_signal = df['buy_signal'].iloc[-1]
         if has_signal:
             message = f"Buy signal generated({df['symbol'].iloc[-1]}): {has_signal}"
